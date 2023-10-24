@@ -2,7 +2,30 @@
 import click
 import logging
 from pathlib import Path
-from dotenv import find_dotenv, load_dotenv
+# from dotenv import find_dotenv, load_dotenv
+from torch.utils.data import Dataset
+from PIL import Image
+import pandas as pd
+
+class DatasetTitleOnly(Dataset):
+    def __init__(self, image_path, csv_path, transformations=None):
+        super(DatasetTitleOnly, self).__init__()
+
+        self.recipes_df = pd.read_csv(csv_path) # For now load everything
+
+        if transformations:
+            self.transformations = transformations
+
+    def __len__(self):
+        return len(self.recipes_df)
+
+    def __getitem__(self, idx):
+        img = Image.open(self.image_names_list[idx])
+
+        # Only get the title
+        recipe_title = self.recip
+
+
 
 
 @click.command()
@@ -25,6 +48,6 @@ if __name__ == '__main__':
 
     # find .env automagically by walking up directories until it's found, then
     # load up the .env entries as environment variables
-    load_dotenv(find_dotenv())
+    # load_dotenv(find_dotenv())
 
     main()
