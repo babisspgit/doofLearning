@@ -1,23 +1,45 @@
 import logging
+import random
+
+import numpy as np
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 from src.data.make_dataset import DatasetRecipes
-from src.models import ViT
+from src.models.ViT import ViT
 
 
-def main(data_path, n_epochs=20, batch_size=16, seed=0):
+def set_seed(seed=0):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+def main(data_path, n_epochs=20, batch_size=16, seed=0, splits_sizes=(0.8, 0.1, 0.1)):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Device: {device}")
+
+    set_seed(
+        seed=seed
+    )  # To make sure, because the same seed will be used for test set in another file
+
     dataset = DatasetRecipes(data_path)
 
-    torch.manual_seed(seed)
-    train_set, val_set = # Split with seed. Use the same seed for test set when using inference
+    train_size, val_size, test_size = splits_sizes
 
-    train_loader = DataLoader(train_set,batch_size, shuffle=True)
-    val_loader = DataLoader(val_set,batch_size, shuffle=False)
+    train_dataset, val_dataset, _ = random_split(
+        dataset,
+        [train_size, val_size, test_size],
+        generator=torch.Generator().manual_seed(seed),
+    )
 
-    logger.info(len(dataset))
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 
 if __name__ == "__main__":
