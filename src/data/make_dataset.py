@@ -65,6 +65,9 @@ class DatasetRecipes(Dataset):
         ingredients = data_point.Cleaned_Ingredients
         instruction = data_point.Instructions
 
+        if not (type(instruction) == str):
+            print(idx, title)
+
         # Prepare the image
         image_name = data_point.Image_Name + ".jpg"
         image_path = self.image_path / image_name
@@ -75,7 +78,7 @@ class DatasetRecipes(Dataset):
             print(f"Image index: {idx}")
             return None, None
 
-        return self.transformations(img), title + ingredients + instruction
+        return self.transformations(img), ingredients + title
 
 
 def img_exists(img_path, entropy_lim=4.5):
@@ -101,11 +104,15 @@ def get_good_idx(raw_df, img_dir):
     for i in pbar:
         row = df.iloc[i]
         # Test if text fields are OK
-        if not row.Title:
+        if not row.Title or not (type(row.Title) == str):
             continue
-        if not row.Instructions:
+        if not row.Instructions or not (type(row.Instructions) == str):
             continue
-        if not row.Cleaned_Ingredients or row.Cleaned_Ingredients == "['']":
+        if (
+            not row.Cleaned_Ingredients
+            or row.Cleaned_Ingredients == "['']"
+            or not (type(row.Cleaned_Ingredients) == str)
+        ):
             continue
 
         # Test if corr. image exists
