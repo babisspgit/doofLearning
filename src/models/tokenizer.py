@@ -40,6 +40,6 @@ if __name__ == "__main__":
 
     from src.data.make_dataset import DatasetRecipes
 
-    csv_path = r"data/raw/archive"
+    csv_path = r"data/processed/validation"
     dataset = DatasetRecipes(csv_path)
     main(dataset)
