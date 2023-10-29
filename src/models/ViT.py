@@ -144,7 +144,7 @@ class ViT(nn.Module):
 
         # Encoder layers
         enc_layers = []
-        for i in num_layers:
+        for i in range(num_layers):
             enc_layers.append(
                 EncoderBlock(embed_dim, num_heads, fc_hidden_dims, dropout)
             )
@@ -155,10 +155,11 @@ class ViT(nn.Module):
         # x is an img tensor
         # batch_size, 3, h, w
         # Tokenize and flatten
+
         x = self.to_patch_embedding(x)
 
         # add positional embedding to each patch
-        positions = self.positional_embedding.to(x.device, dtype=x.dtype)
+        positions = self.positional_embeddings.to(x.device, dtype=x.dtype)
         x = positions + x
 
         x = self.dropout(x)
@@ -167,4 +168,4 @@ class ViT(nn.Module):
         # Find a way to pool the last layer and project on embedding dims
         # Maybe add a linear layer or just let it be, since the
         # output is already in embed_dim dims
-        pass
+        return x

@@ -16,8 +16,6 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-import skimage.measure
-
 
 def set_seed(seed=0):
     random.seed(seed)
@@ -39,17 +37,30 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0):
     train_path = data_path / "train"
     validation_path = data_path / "validation"
 
-    train_dataset = DatasetRecipes(train_path)
+    train_transform = transforms.Compose(
+        [
+            transforms.Resize([169, 169]),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)),
+        ]
+    )
+
+    train_dataset = DatasetRecipes(train_path, transformations=train_transform)
     validation_dataset = DatasetRecipes(validation_path)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
 
     img_size = train_dataset[0][0].shape[-2:]
+    patches_size = (13, 13)
 
     model = ViT(
         img_dims=img_size,
         channels=3,
+        patch_sizes=patches_size,
+        embed_dim=128,
+        num_heads=2,
+        num_layers=4,
     )
     model.to(device)
 

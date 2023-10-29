@@ -79,10 +79,10 @@ class EncoderBlock(nn.Module):
 
         self.fc = nn.Sequential(
             nn.LayerNorm(embed_dim),
-            nn.Linear(embed_dim, fc_hidden_dims),
+            nn.Linear(embed_dim, self.fc_hidden_dims),
             nn.GELU(),
-            nn.LayerNorm(fc_hidden_dims),
-            nn.Linear(fc_hidden_dims, embed_dim),
+            nn.LayerNorm(self.fc_hidden_dims),
+            nn.Linear(self.fc_hidden_dims, embed_dim),
         )
 
     def forward(self, x):
