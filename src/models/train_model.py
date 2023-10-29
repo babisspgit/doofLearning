@@ -5,10 +5,18 @@ import numpy as np
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
+
+from torchvision import transforms
 
 from src.data.make_dataset import DatasetRecipes
 from src.models.ViT import ViT
+
+from pathlib import Path
+
+from tqdm import tqdm
+
+import skimage.measure
 
 
 def set_seed(seed=0):
@@ -20,7 +28,7 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-def main(data_path, n_epochs=20, batch_size=16, seed=0, splits_sizes=(0.8, 0.1, 0.1)):
+def main(data_path, n_epochs=20, batch_size=16, seed=0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {device}")
 
@@ -28,18 +36,33 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, splits_sizes=(0.8, 0.1, 
         seed=seed
     )  # To make sure, because the same seed will be used for test set in another file
 
-    dataset = DatasetRecipes(data_path)
+    train_path = data_path / "train"
+    validation_path = data_path / "validation"
 
-    train_size, val_size, test_size = splits_sizes
-
-    train_dataset, val_dataset, _ = random_split(
-        dataset,
-        [train_size, val_size, test_size],
-        generator=torch.Generator().manual_seed(seed),
-    )
+    train_dataset = DatasetRecipes(train_path)
+    validation_dataset = DatasetRecipes(validation_path)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    val_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
+
+    img_size = train_dataset[0][0].shape[-2:]
+
+    model = ViT(
+        img_dims=img_size,
+        channels=3,
+    )
+    model.to(device)
+
+    for epoch in tqdm(range(n_epochs)):
+        for data in train_loader:
+            img, dt = data
+
+            img = img.to(device)
+
+            out = model(img)
+
+            print(out.shape)
+            return
 
 
 if __name__ == "__main__":
@@ -50,7 +73,7 @@ if __name__ == "__main__":
     logger.info("Starting training...")
 
     options = {
-        "data_path": r"data/raw/archive",
+        "data_path": Path(r"data/processed"),
         "batch_size": 16,
         "n_epochs": 20,
         "seed": 0,

@@ -11,10 +11,14 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 from torchvision import transforms
 import torchtext
 
 from tqdm import tqdm
+
+import skimage.measure
 
 
 def set_seed(seed=0):
@@ -33,13 +37,10 @@ class DatasetRecipes(Dataset):
         self.MAX_SEQ_LEN = 512
         self.VOCAB_SIZE = 50_000
 
-        csv_path = (
-            Path(data_path)
-            / "Food Ingredients and Recipe Dataset with Image Name Mapping.csv"
-        )
+        csv_path = Path(data_path) / "recipes.csv"
 
-        self.recipes_df = pd.read_csv(csv_path)  # For now load everything
-        self.image_path = Path(data_path) / "Food Images" / "Food Images"
+        self.recipes_df = pd.read_csv(csv_path)
+        self.image_path = Path(data_path) / "images"
 
         if not transformations:
             self.transformations = transforms.Compose(
@@ -62,8 +63,8 @@ class DatasetRecipes(Dataset):
 
         title = data_point.Title
 
-        # Would it be better if we dropeed the sq. brackets at the beg and end?
-        ingredients = data_point.Cleaned_Ingredients  # Look the same as Ingredients
+        # Would it be better if we droped the sq. brackets at the beg and end?
+        ingredients = data_point.Cleaned_Ingredients
         instruction = data_point.Instructions
 
         # Prepare the image
@@ -79,9 +80,13 @@ class DatasetRecipes(Dataset):
         return self.transformations(img), title + ingredients + instruction
 
 
-def img_exists(img_path):
+def img_exists(img_path, entropy_lim=4.5):
     try:
-        Image.open(img_path)
+        img_ = Image.open(img_path)
+        entropy = skimage.measure.shannon_entropy(img_)
+        if entropy < entropy_lim:
+            return False
+
     except FileNotFoundError:
         return False
 
@@ -115,6 +120,21 @@ def get_good_idx(raw_df, img_dir):
     return good_idx
 
 
+def save_images(df: pd.DataFrame, root_path: Path, raw_images_path: Path) -> None:
+    pbar = tqdm(range(len(df)), desc="Saving images")
+
+    images_path = root_path / "images"
+    Path.mkdir(images_path, exist_ok=True, parents=True)
+
+    for i in pbar:
+        row = df.iloc[i]
+        img_path_read = raw_images_path / f"{row.Image_Name}.jpg"
+        img_write_path = images_path / f"{row.Image_Name}.jpg"
+        if img_write_path.exists():
+            continue
+        Image.open(img_path_read).convert("RGB").save(img_write_path)
+
+
 def main(input_filepath, output_path, seed=42):
     """Runs data processing scripts to turn raw data from (../raw) into
     cleaned data ready to be analyzed (saved in ../processed).
@@ -137,11 +157,15 @@ def main(input_filepath, output_path, seed=42):
 
     good_idx = get_good_idx(raw_df, raw_images_path)
 
-    # Create the processed dir
+    # Create the processed dirs
     logger.info("Creating folders")
     processed_train = output_path / "train"
     processed_validation = output_path / "validation"
     processed_test = output_path / "test"
+
+    processed_train_images = output_path / "train" / "images"
+    processed_validation_images = output_path / "validation" / "images"
+    processed_test_images = output_path / "test" / "images"
 
     Path.mkdir(processed_train, exist_ok=True, parents=True)
     Path.mkdir(processed_validation, exist_ok=True, parents=True)
@@ -154,16 +178,26 @@ def main(input_filepath, output_path, seed=42):
         np.abs(splits[0] + splits[1] + splits[-1] - 1) < 1e-6
     ), "The splits should add to 1"
 
-    clean_df = raw_df.iloc[good_idx, :]
+    clean_df = raw_df.iloc[good_idx]
 
-    print(len(raw_df), len(clean_df))
-
-    train, validate, test = np.split(
+    train_df, validate_df, test_df = np.split(
         clean_df.sample(frac=1, random_state=42),
         [int(splits[0] * len(clean_df)), int((splits[0] + splits[1]) * len(clean_df))],
     )
 
-    print(len(train), len(validate), len(test))
+    train_path = processed_train / "recipes.csv"
+    train_df.to_csv(train_path.as_posix(), index=False, header=True)
+
+    val_path = processed_validation / "recipes.csv"
+    validate_df.to_csv(val_path.as_posix(), index=False, header=True)
+
+    test_path = processed_test / "recipes.csv"
+    test_df.to_csv(test_path.as_posix(), index=False, header=True)
+
+    # Handle the images
+    save_images(train_df, processed_train, raw_images_path)
+    save_images(validate_df, processed_validation, raw_images_path)
+    save_images(test_df, processed_test, raw_images_path)
 
 
 if __name__ == "__main__":
