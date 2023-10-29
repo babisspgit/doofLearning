@@ -11,10 +11,8 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 
-import matplotlib.pyplot as plt
 
 from torchvision import transforms
-import torchtext
 
 from tqdm import tqdm
 
@@ -163,10 +161,6 @@ def main(input_filepath, output_path, seed=42):
     processed_validation = output_path / "validation"
     processed_test = output_path / "test"
 
-    processed_train_images = output_path / "train" / "images"
-    processed_validation_images = output_path / "validation" / "images"
-    processed_test_images = output_path / "test" / "images"
-
     Path.mkdir(processed_train, exist_ok=True, parents=True)
     Path.mkdir(processed_validation, exist_ok=True, parents=True)
     Path.mkdir(processed_test, exist_ok=True, parents=True)
@@ -212,6 +206,5 @@ if __name__ == "__main__":
 
     input_filepath = Path(r"data/raw")
     output_filepath = Path(r"data/processed")
-    # load_dotenv(find_dotenv())
 
     main(input_filepath, output_filepath)
