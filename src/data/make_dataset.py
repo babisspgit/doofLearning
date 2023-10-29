@@ -65,8 +65,8 @@ class DatasetRecipes(Dataset):
         ingredients = data_point.Cleaned_Ingredients
         instruction = data_point.Instructions
 
-        if not (type(instruction) == str):
-            print(idx, title)
+        # if not (type(instruction) == str):
+        #     print(idx, title)
 
         # Prepare the image
         image_name = data_point.Image_Name + ".jpg"
@@ -78,7 +78,7 @@ class DatasetRecipes(Dataset):
             print(f"Image index: {idx}")
             return None, None
 
-        return self.transformations(img), ingredients + title
+        return self.transformations(img), ingredients
 
 
 def img_exists(img_path, entropy_lim=4.5):
