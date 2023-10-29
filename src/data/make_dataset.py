@@ -29,6 +29,7 @@ class DatasetRecipes(Dataset):
         if not transformations:
             self.transformations = transforms.Compose(
                 [
+                    # transforms.Resize(200,200),
                     transforms.ToTensor(),
                     transforms.Normalize((0.5,), (0.5,)),
                 ]
@@ -36,10 +37,10 @@ class DatasetRecipes(Dataset):
         else:
             self.transformations = transformations
 
-    def tokenize(self, input_text):
-        TEXT = torchtext.data.Field(lower=True, include_lengths=True, batch_first=True)
-        TEXT.build_vocab(input_text, max_size=self.VOCAB_SIZE - 2)
-        return input_text
+    # def tokenize(self, input_text):
+    #     TEXT = torchtext.data.Field(lower=True, include_lengths=True, batch_first=True)
+    #     TEXT.build_vocab(input_text, max_size=self.VOCAB_SIZE - 2)
+    #     return input_text
 
     def __len__(self):
         return len(self.recipes_df)
@@ -50,17 +51,22 @@ class DatasetRecipes(Dataset):
         # Prepare the text data
 
         title = data_point.Title
+
+        # Would it be better if we dropeed the sq. brackets at the beg and end?
         ingredients = data_point.Cleaned_Ingredients  # Look the same as Ingredients
         instruction = data_point.Instructions
 
         # Prepare the image
         image_name = data_point.Image_Name + ".jpg"
         image_path = self.image_path / image_name
-        img = Image.open(image_path)
 
-        return title, self.tokenize(title)
+        try:
+            img = Image.open(image_path)
+        except FileNotFoundError as e:
+            print(f"Image index: {idx}")
+            return None, None
 
-        return self.transformations(img), title, instruction
+        return self.transformations(img), title + ingredients + instruction
 
 
 def main(input_filepath):
