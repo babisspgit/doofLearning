@@ -4,4 +4,10 @@
 # external requirements
 click
 
-python-dotenv>=0.5.1
+torch
+torchvision
+torchtext==0.16
+
+pandas
+numpy
+matplotlib
