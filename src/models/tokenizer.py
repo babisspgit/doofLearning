@@ -1,52 +1,48 @@
-import re
-from collections import Counter, OrderedDict
-from torchtext.vocab import Vocab
-from torchtext import vocab
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, Dataset
+
+from torchtext import data, vocab, datasets
+from torchtext.data import TabularDataset
+
+from src.data.make_dataset import DatasetRecipes
+
+import spacy
+
+VOCAB_SIZE = 50000
+
+TEXT = data.Field(
+    lower=True, include_lengths=True, batch_first=True, truncate_first=False
+)
+
+fields = {"Instructions": ("instructions", TEXT)}
+
+data_path = "data/processed/test/recipes.csv"
+custom_examples = TabularDataset(path=data_path, format="csv", fields=fields)
+
+# Build the vocabulary
+TEXT.build_vocab(custom_examples, vectors="glove.6B.100d")
+# Build the vocabulary
+# TEXT.build_vocab(custom_examples, max_size=50000, min_freq=2)
 
 
-def tokenizer(raw_text: str) -> list:
-    """
-    Transforms a string input to a list of strings, aka tokens
-    Preprocesses-removes unwanted characters
-    """
+index = 0
+text = custom_examples[index].instructions
 
-    # TODO Decide which characters to remove, replace with empty string, eg. '[' or ']'
-    text = raw_text.replace("[", "")
-    text = text.replace("]", "")
-    text = text.lower()
+print(custom_examples[index].instructions)
+print(TEXT.vocab.vectors[text])
 
-    # There exist also some special chaarcters , like the unicode for 3/4. Let them be?
+# data_path = "data/processed/test"
 
-    # TODO Decide what to do with punctuation, like ','. I let them be for now.
-
-    tokenized_text = text.split()
-
-    return tokenized_text
+# spacy_en = spacy.load("en")
 
 
-def main(dataset_):
-    token_counts = Counter()
+# def tokenizer(input_text):
+#     return [token.text for token in spacy_en.tokenizer(input_text)]
 
-    for _, text_ in dataset_:
-        if not text_:
-            continue
-        tokens = tokenizer(text_)
-        token_counts.update(tokens)
-
-    print(f"Vocab length: {len(token_counts)}")
-
-    sorted_counted_words = sorted(
-        token_counts.items(), key=lambda x: x[1], reverse=True
-    )
-    ord_dict = OrderedDict(sorted_counted_words)
-    vocab_ = vocab.build_vocab_from_iterator(ord_dict)
+# titles_field = data.Field(lower=True, use_vocab=True, include_lengths=True, batch_first=True, tokenize=tokenizer)
+# ingredients_field = data.Field(lower=True, use_vocab=True, include_lengths=True, batch_first=True, tokenize=tokenizer)
+# instructions_field  = data.Field(lower=True, use_vocab=True, include_lengths=True, batch_first=True, tokenize=tokenizer)
 
 
-if __name__ == "__main__":
-    # Only to test the tokenizer! Does not save anything for the model to see!
-
-    from src.data.make_dataset import DatasetRecipes
-
-    csv_path = r"data/processed/validation"
-    dataset = DatasetRecipes(csv_path)
-    main(dataset)
+# dataset = DatasetRecipes(data_path, titles_field, ingredients_field, instructions_field)

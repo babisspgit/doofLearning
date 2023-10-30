@@ -11,6 +11,7 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 
+from torchtext.data import TabularDataset
 
 from torchvision import transforms
 
@@ -29,7 +30,14 @@ def set_seed(seed=0):
 
 
 class DatasetRecipes(Dataset):
-    def __init__(self, data_path, transformations=None):
+    def __init__(
+        self,
+        data_path,
+        titles_field,
+        ingredients_field,
+        instructions_field,
+        transformations=None,
+    ):
         super(DatasetRecipes, self).__init__()
 
         self.MAX_SEQ_LEN = 512
@@ -51,6 +59,18 @@ class DatasetRecipes(Dataset):
         else:
             self.transformations = transformations
 
+        # Process text datasets
+        fields = {
+            "Title": ("Title", titles_field),
+            "Cleaned_Ingredients": ("Ingredients", ingredients_field),
+            "Instructions": ("Instructions", instructions_field),
+        }
+        examples = TabularDataset(path=data_path, format="csv", fields=fields)
+
+        titles_field.build_vocab(examples)
+        instructions_field.build_vocab(examples)
+        ingredients_field.build_vocab(examples)
+
     def __len__(self):
         return len(self.recipes_df)
 
@@ -59,11 +79,7 @@ class DatasetRecipes(Dataset):
 
         # Prepare the text data
 
-        title = data_point.Title
-
         # Would it be better if we droped the sq. brackets at the beg and end?
-        ingredients = data_point.Cleaned_Ingredients
-        instruction = data_point.Instructions
 
         # if not (type(instruction) == str):
         #     print(idx, title)
@@ -173,31 +189,37 @@ def main(input_filepath, output_path, seed=42):
     Path.mkdir(processed_test, exist_ok=True, parents=True)
 
     # From the good idx, split the datasets in train val test
-    splits = [0.8, 0.1, 0.1]
+    # splits = [0.85, 0.1, 0.05]
+    splits = [0.99, 0.01]
 
-    assert (
-        np.abs(splits[0] + splits[1] + splits[-1] - 1) < 1e-6
-    ), "The splits should add to 1"
+    # assert (
+    #     np.abs(splits[0] + splits[1] + splits[-1] - 1) < 1e-6
+    # ), "The splits should add to 1"
 
     clean_df = raw_df.iloc[good_idx]
 
-    train_df, validate_df, test_df = np.split(
+    # train_df, validate_df, test_df = np.split(
+    #     clean_df.sample(frac=1, random_state=42),
+    #     [int(splits[0] * len(clean_df)), int((splits[0] + splits[1]) * len(clean_df))],
+    # )
+
+    train_df, test_df = np.split(
         clean_df.sample(frac=1, random_state=42),
-        [int(splits[0] * len(clean_df)), int((splits[0] + splits[1]) * len(clean_df))],
+        [int(splits[0] * len(clean_df))],
     )
 
     train_path = processed_train / "recipes.csv"
     train_df.to_csv(train_path.as_posix(), index=False, header=True)
 
-    val_path = processed_validation / "recipes.csv"
-    validate_df.to_csv(val_path.as_posix(), index=False, header=True)
+    # val_path = processed_validation / "recipes.csv"
+    # validate_df.to_csv(val_path.as_posix(), index=False, header=False)
 
     test_path = processed_test / "recipes.csv"
     test_df.to_csv(test_path.as_posix(), index=False, header=True)
 
     # Handle the images
     save_images(train_df, processed_train, raw_images_path)
-    save_images(validate_df, processed_validation, raw_images_path)
+    # save_images(validate_df, processed_validation, raw_images_path)
     save_images(test_df, processed_test, raw_images_path)
 
 
