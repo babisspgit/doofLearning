@@ -1,0 +1,22 @@
+# local package
+-e .
+
+# external requirements
+click
+
+<<<<<<< HEAD
+spacy
+torch
+torchvision
+torchtext==0.6.0
+pandas
+numpy
+=======
+torch
+torchvision
+torchtext==0.16
+
+pandas
+numpy
+matplotlib
+>>>>>>> 2cf79d9a7eb73ba822bc8eeab933eb73f454f919
