@@ -43,16 +43,15 @@ class DatasetRecipes(Dataset):
         self.recipes_df = pd.read_csv(csv_path)
         self.image_path = Path(data_path) / "images"
 
+        self.transformations = transformations
         if not transformations:
             self.transformations = transforms.Compose(
                 [
                     transforms.Resize((169,169)),
                     transforms.ToTensor(),
-                    transforms.Normalize((0.5,), (0.5,)),
+                    # transforms.Normalize((0.5,), (0.5,)),
                 ]
             )
-        else:
-            self.transformations = transformations
 
         
 
