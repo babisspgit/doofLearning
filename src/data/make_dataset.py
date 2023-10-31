@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
 import logging
 from pathlib import Path
 
 import random
 
-# from dotenv import find_dotenv, load_dotenv
 import torch
 from torch.utils.data import Dataset
 from PIL import Image
 import pandas as pd
 import numpy as np
 
-from torchtext.data import TabularDataset
+
 
 from torchvision import transforms
 
@@ -33,9 +31,6 @@ class DatasetRecipes(Dataset):
     def __init__(
         self,
         data_path,
-        titles_field,
-        ingredients_field,
-        instructions_field,
         transformations=None,
     ):
         super(DatasetRecipes, self).__init__()
@@ -51,7 +46,7 @@ class DatasetRecipes(Dataset):
         if not transformations:
             self.transformations = transforms.Compose(
                 [
-                    # transforms.Resize(200,200),
+                    transforms.Resize((169,169)),
                     transforms.ToTensor(),
                     transforms.Normalize((0.5,), (0.5,)),
                 ]
@@ -59,17 +54,7 @@ class DatasetRecipes(Dataset):
         else:
             self.transformations = transformations
 
-        # Process text datasets
-        fields = {
-            "Title": ("Title", titles_field),
-            "Cleaned_Ingredients": ("Ingredients", ingredients_field),
-            "Instructions": ("Instructions", instructions_field),
-        }
-        examples = TabularDataset(path=data_path, format="csv", fields=fields)
-
-        titles_field.build_vocab(examples)
-        instructions_field.build_vocab(examples)
-        ingredients_field.build_vocab(examples)
+        
 
     def __len__(self):
         return len(self.recipes_df)
@@ -77,12 +62,13 @@ class DatasetRecipes(Dataset):
     def __getitem__(self, idx):
         data_point = self.recipes_df.iloc[idx]
 
+
         # Prepare the text data
+        title = data_point.Title
+        ingredients = data_point.Cleaned_Ingredients
+        instructions = data_point.Instructions
 
-        # Would it be better if we droped the sq. brackets at the beg and end?
 
-        # if not (type(instruction) == str):
-        #     print(idx, title)
 
         # Prepare the image
         image_name = data_point.Image_Name + ".jpg"
@@ -94,7 +80,7 @@ class DatasetRecipes(Dataset):
             print(f"Image index: {idx}")
             return None, None
 
-        return self.transformations(img), ingredients
+        return self.transformations(img), title+" "+ ingredients +" "+ instructions
 
 
 def img_exists(img_path, entropy_lim=4.5):
@@ -181,11 +167,11 @@ def main(input_filepath, output_path, seed=42):
     # Create the processed dirs
     logger.info("Creating folders")
     processed_train = output_path / "train"
-    processed_validation = output_path / "validation"
+    # processed_validation = output_path / "validation"
     processed_test = output_path / "test"
 
     Path.mkdir(processed_train, exist_ok=True, parents=True)
-    Path.mkdir(processed_validation, exist_ok=True, parents=True)
+    # Path.mkdir(processed_validation, exist_ok=True, parents=True)
     Path.mkdir(processed_test, exist_ok=True, parents=True)
 
     # From the good idx, split the datasets in train val test
