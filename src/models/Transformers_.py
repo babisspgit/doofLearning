@@ -151,7 +151,9 @@ class ViT(nn.Module):
 
         self.transformer = nn.Sequential(*enc_layers)
 
-        self.projection_layer = nn.Linear(embed_dim, projection_dims)
+        self.projection_layer = nn.Linear(
+            embed_dim, projection_dims
+        )  # Equivalent to W_i from CLIP
 
     def forward(self, x):
         # x is an img tensor
@@ -175,7 +177,6 @@ class ViT(nn.Module):
         # elif self.pool == "mean":
         #     x = x.mean(dim=1)
         x = x.max(dim=1)[0]
-        return x
         return self.projection_layer(x)
 
 
@@ -231,7 +232,9 @@ class TextTransformer(nn.Module):
 
         self.text_transformer_blocks = nn.Sequential(*encoder_blocks)
 
-        self.projection_layer = nn.Linear(embed_dims, projection_dims)
+        self.projection_layer = nn.Linear(
+            embed_dims, projection_dims
+        )  # Equivalent to W_t from CLIP
 
         self.dropout = nn.Dropout(dropout)
 
@@ -248,5 +251,4 @@ class TextTransformer(nn.Module):
         # Probably need to say sth about max seq
         # and also pooling the last attention output
         x = x.max(dim=1)[0]
-        return x
         return self.projection_layer(x)

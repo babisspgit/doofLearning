@@ -18,7 +18,9 @@ from src.models.models import TransformersSingleTextModel
 
 from src.utils.vocab_build import get_vocab, tokenizer
 
-MAX_SEQ_LEN = 1000  # Maximum number of tokens per text input
+from src.models.losses import ConstrastiveLoss, ClipSymmetricLoss
+
+MAX_SEQ_LEN = 2500  # Maximum number of tokens per text input
 VOCAB_SIZE = 50000
 
 
@@ -31,7 +33,7 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-def main(data_path, n_epochs=20, batch_size=16, seed=0):
+def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {device}")
 
@@ -104,24 +106,37 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0):
     }
 
     model = TransformersSingleTextModel(vit_options, text_transf_options)
+    model.to(device)
+
+    optim = torch.optim.AdamW(model.parameters(), lr=lr)  # Should we add weight decay?
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    #     optim,
+    # )  # or stepLR
+
+    loss_fn = ConstrastiveLoss(m=1.0)
 
     for epoch in tqdm(range(n_epochs)):
+        model.train()
+        epoch_loss = 0
         for data in train_loader:
-            img, text, length_ = data
-
-            # img = img.to(device)
-
-            # img_batch_features = image_model(img)
-
-            # text_batch_features = text_model(text)
-
+            img, text, _ = data  # from collate_fn they are on device
             img_batch_features, text_batch_features = model(img, text)
 
-            print(img_batch_features.shape)
-            print()
-            print(text_batch_features.shape)
+            optim.zero_grad()
+            loss = loss_fn(img_batch_features, text_batch_features)
+            loss.backward()
 
-            return
+            optim.step()
+
+            epoch_loss += loss.detach().numpy()
+
+            # return
+
+        logger.info(f"Epoch {epoch} loss: {epoch/batch_size}")
+
+        # Save the model state dict
+
+        # scheduler.step()
 
 
 if __name__ == "__main__":
@@ -136,6 +151,7 @@ if __name__ == "__main__":
         "batch_size": 1,
         "n_epochs": 20,
         "seed": 0,
+        "lr": 1e-4,
     }
 
     main(**options)
