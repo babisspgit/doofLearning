@@ -1,6 +1,10 @@
 import logging
 import random
 
+from pathlib import Path
+
+from tqdm import tqdm
+
 import numpy as np
 
 import torch
@@ -10,16 +14,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from src.data.make_dataset import DatasetRecipes
-from src.models.ViT import ViT
-from src.models.TextTransformer import TextTransformer
-
-from pathlib import Path
-
-from tqdm import tqdm
+from src.models.models import TransformersSingleTextModel
 
 from src.utils.vocab_build import get_vocab, tokenizer
 
-MAX_SEQ_LEN = 1000 # Maximum numberof tokens per text input
+MAX_SEQ_LEN = 1000  # Maximum number of tokens per text input
+VOCAB_SIZE = 50000
+
 
 def set_seed(seed=0):
     random.seed(seed)
@@ -28,8 +29,6 @@ def set_seed(seed=0):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
-
-
 
 
 def main(data_path, n_epochs=20, batch_size=16, seed=0):
@@ -51,49 +50,60 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0):
     )
 
     train_dataset = DatasetRecipes(train_path, transformations=train_transform)
-        
+
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
     vocab = get_vocab(train_dataset, tokenizer=tokenizer)
 
     # Pipeline
-    device = torch.device('cpu')
+    device = torch.device("cpu")
 
     text_pipeline = lambda x: [vocab[token] for token in tokenizer(x)]
 
     def collate_batch(batch):
-        img_list ,text_list, lengths = [], [], []
+        img_list, text_list, lengths = [], [], []
         for img, _text in batch:
-            processed_text = torch.tensor(text_pipeline(_text), 
-                                        dtype=torch.int64)
+            processed_text = torch.tensor(text_pipeline(_text), dtype=torch.int64)
             text_list.append(processed_text)
             img_list.append(img.unsqueeze(0))
             lengths.append(processed_text.size(0))
         lengths = torch.tensor(lengths)
-        text_list[0] = nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(text_list[0])
-        padded_text_list = nn.utils.rnn.pad_sequence(
-            text_list, batch_first=True)
-        return torch.cat(img_list, axis=0).to(device), padded_text_list.to(device), lengths.to(device)
-    
+        text_list[0] = nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(
+            text_list[0]
+        )
+        padded_text_list = nn.utils.rnn.pad_sequence(text_list, batch_first=True)
+        return (
+            torch.cat(img_list, axis=0).to(device),
+            padded_text_list.to(device),
+            lengths.to(device),  # might not actually need this
+        )
 
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,  collate_fn=collate_batch)
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
+    )
 
     img_size = train_dataset[0][0].shape[-2:]
     patches_size = (13, 13)
 
-    image_model = ViT(
-        img_dims=img_size,
-        channels=3,
-        patch_sizes=patches_size,
-        embed_dim=128,
-        projection_dims=128,
-        num_heads=2,
-        num_layers=4,
-    )
-    image_model.to(device)
+    vit_options = {
+        "img_dims": img_size,
+        "channels": 3,
+        "patch_sizes": patches_size,
+        "embed_dim": 128,
+        "projection_dims": 128,
+        "num_heads": 2,
+        "num_layers": 4,
+    }
 
-    text_model = TextTransformer(num_heads=1,num_blocks=3,embed_dims=128, projection_dims=128,seq_len=MAX_SEQ_LEN)
+    text_transf_options = {
+        "num_heads": 1,
+        "num_blocks": 3,
+        "embed_dims": 128,
+        "projection_dims": 128,
+        "vocab_size": VOCAB_SIZE,
+        "max_seq_len": MAX_SEQ_LEN,
+    }
 
+    model = TransformersSingleTextModel(vit_options, text_transf_options)
 
     for epoch in tqdm(range(n_epochs)):
         for data in train_loader:
@@ -101,9 +111,11 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0):
 
             # img = img.to(device)
 
-            img_batch_features = image_model(img)
+            # img_batch_features = image_model(img)
 
-            text_batch_features = text_model(text)
+            # text_batch_features = text_model(text)
+
+            img_batch_features, text_batch_features = model(img, text)
 
             print(img_batch_features.shape)
             print()
