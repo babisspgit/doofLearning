@@ -12,6 +12,7 @@ class ViT(nn.Module):
         channels,
         patch_sizes,
         embed_dim,
+        projection_dims,
         num_heads,
         num_layers,
         fc_hidden_dims=None,
@@ -55,6 +56,8 @@ class ViT(nn.Module):
 
         self.transformer = nn.Sequential(*enc_layers)
 
+        self.projection_layer = nn.Linear(embed_dim, projection_dims)
+
     def forward(self, x):
         # x is an img tensor
         # batch_size, 3, h, w
@@ -72,4 +75,9 @@ class ViT(nn.Module):
         # Find a way to pool the last layer and project on embedding dims
         # Maybe add a linear layer or just let it be, since the
         # output is already in embed_dim dims
-        return x
+        # if self.pool == "max":
+        #     x = x.max(dim=1)[0]
+        # elif self.pool == "mean":
+        #     x = x.mean(dim=1)
+        x = x.max(dim=1)[0]
+        return self.projection_layer(x)
