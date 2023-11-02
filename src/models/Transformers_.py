@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
 from einops import rearrange
+from transformers import BertModel
 
 import math
 
@@ -252,3 +253,8 @@ class TextTransformer(nn.Module):
         # and also pooling the last attention output
         x = x.max(dim=1)[0]
         return self.projection_layer(x)
+
+
+def bert_model():
+    model = BertModel.from_pretrained('bert-base-uncased')
+    return model

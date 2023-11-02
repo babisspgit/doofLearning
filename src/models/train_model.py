@@ -18,6 +18,8 @@ from src.models.models import TransformersSingleTextModel
 
 from src.utils.vocab_build import get_vocab, tokenizer
 
+from transformers import BertTokenizer
+
 from src.models.losses import ConstrastiveLoss, ClipSymmetricLoss
 
 MAX_SEQ_LEN = 2500  # Maximum number of tokens per text input
@@ -54,7 +56,7 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
     train_dataset = DatasetRecipes(train_path, transformations=train_transform)
 
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
-    vocab = get_vocab(train_dataset, tokenizer=tokenizer)
+    vocab = get_vocab(train_dataset, tokenizer=tokenizer)# BertTokenizer
 
     # Pipeline
     device = torch.device("cpu")
