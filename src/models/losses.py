@@ -52,6 +52,6 @@ class ClipSymmetricLoss(nn.Module):
 
         # symmetric loss function
         labels = torch.arange(logits.shape[0])
-        loss_i = self.cross_entropy_loss(logits, labels, axis=0)
-        loss_t = self.cross_entropy_loss(logits, labels, axis=1)
+        loss_i = self.cross_entropy_loss(logits, labels)
+        loss_t = self.cross_entropy_loss(logits, labels)
         return (loss_i + loss_t) / 2

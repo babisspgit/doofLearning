@@ -10,7 +10,7 @@ from torchtext.datasets import IMDB
 
 from src.data.make_dataset import DatasetRecipes
 
-MAX_LEN=1000
+MAX_LEN=50
 
 train_dataset = IMDB(split='train')
 
