@@ -10,7 +10,6 @@ import pandas as pd
 import numpy as np
 
 
-
 from torchvision import transforms
 
 from tqdm import tqdm
@@ -35,8 +34,8 @@ class DatasetRecipes(Dataset):
     ):
         super(DatasetRecipes, self).__init__()
 
-        self.MAX_SEQ_LEN = 512
-        self.VOCAB_SIZE = 50_000
+        # self.MAX_SEQ_LEN = 512
+        # self.VOCAB_SIZE = 50_000
 
         csv_path = Path(data_path) / "recipes.csv"
 
@@ -47,13 +46,11 @@ class DatasetRecipes(Dataset):
         if not transformations:
             self.transformations = transforms.Compose(
                 [
-                    transforms.Resize((169,169)),
+                    transforms.Resize((224, 224)),
                     transforms.ToTensor(),
-                    # transforms.Normalize((0.5,), (0.5,)),
+                    transforms.Normalize((0.5,), (0.5,)),
                 ]
             )
-
-        
 
     def __len__(self):
         return len(self.recipes_df)
@@ -61,13 +58,10 @@ class DatasetRecipes(Dataset):
     def __getitem__(self, idx):
         data_point = self.recipes_df.iloc[idx]
 
-
         # Prepare the text data
         title = data_point.Title
         ingredients = data_point.Cleaned_Ingredients
         instructions = data_point.Instructions
-
-
 
         # Prepare the image
         image_name = data_point.Image_Name + ".jpg"
@@ -79,7 +73,7 @@ class DatasetRecipes(Dataset):
             print(f"Image index: {idx}")
             return None, None
 
-        return self.transformations(img), title+" "+ ingredients +" "+ instructions
+        return self.transformations(img), title + " " + ingredients + " " + instructions
 
 
 def img_exists(img_path, entropy_lim=4.5):

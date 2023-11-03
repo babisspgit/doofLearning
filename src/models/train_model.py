@@ -56,7 +56,7 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
     train_dataset = DatasetRecipes(train_path, transformations=train_transform)
 
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
-    vocab = get_vocab(train_dataset, tokenizer=tokenizer)# BertTokenizer
+    vocab = get_vocab(train_dataset, tokenizer=tokenizer)  # BertTokenizer
 
     # Pipeline
     device = torch.device("cpu")
@@ -122,15 +122,16 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
         epoch_loss = 0
         for data in train_loader:
             img, text, _ = data  # from collate_fn they are on device
-            img_batch_features, text_batch_features = model(img, text)
 
-            optim.zero_grad()
-            loss = loss_fn(img_batch_features, text_batch_features)
-            loss.backward()
+            # img_batch_features, text_batch_features = model(img, text)
 
-            optim.step()
+            # optim.zero_grad()
+            # loss = loss_fn(img_batch_features, text_batch_features)
+            # loss.backward()
 
-            epoch_loss += loss.detach().numpy()
+            # optim.step()
+
+            # epoch_loss += loss.detach().numpy()
 
             # return
 
