@@ -160,45 +160,45 @@ def main(input_filepath, output_path, seed=42):
     # Create the processed dirs
     logger.info("Creating folders")
     processed_train = output_path / "train"
-    # processed_validation = output_path / "validation"
+    processed_validation = output_path / "validation"
     processed_test = output_path / "test"
 
     Path.mkdir(processed_train, exist_ok=True, parents=True)
-    # Path.mkdir(processed_validation, exist_ok=True, parents=True)
+    Path.mkdir(processed_validation, exist_ok=True, parents=True)
     Path.mkdir(processed_test, exist_ok=True, parents=True)
 
     # From the good idx, split the datasets in train val test
-    # splits = [0.85, 0.1, 0.05]
-    splits = [0.99, 0.01]
+    splits = [0.85, 0.1, 0.05]
+    # splits = [0.99, 0.01]
 
-    # assert (
-    #     np.abs(splits[0] + splits[1] + splits[-1] - 1) < 1e-6
-    # ), "The splits should add to 1"
+    assert (
+        np.abs(splits[0] + splits[1] + splits[-1] - 1) < 1e-6
+    ), "The splits should add to 1"
 
     clean_df = raw_df.iloc[good_idx]
 
-    # train_df, validate_df, test_df = np.split(
-    #     clean_df.sample(frac=1, random_state=42),
-    #     [int(splits[0] * len(clean_df)), int((splits[0] + splits[1]) * len(clean_df))],
-    # )
-
-    train_df, test_df = np.split(
+    train_df, validate_df, test_df = np.split(
         clean_df.sample(frac=1, random_state=42),
-        [int(splits[0] * len(clean_df))],
+        [int(splits[0] * len(clean_df)), int((splits[0] + splits[1]) * len(clean_df))],
     )
+
+    # train_df, test_df = np.split(
+    #     clean_df.sample(frac=1, random_state=42),
+    #     [int(splits[0] * len(clean_df))],
+    # )
 
     train_path = processed_train / "recipes.csv"
     train_df.to_csv(train_path.as_posix(), index=False, header=True)
 
-    # val_path = processed_validation / "recipes.csv"
-    # validate_df.to_csv(val_path.as_posix(), index=False, header=False)
+    val_path = processed_validation / "recipes.csv"
+    validate_df.to_csv(val_path.as_posix(), index=False, header=True)
 
     test_path = processed_test / "recipes.csv"
     test_df.to_csv(test_path.as_posix(), index=False, header=True)
 
     # Handle the images
     save_images(train_df, processed_train, raw_images_path)
-    # save_images(validate_df, processed_validation, raw_images_path)
+    save_images(validate_df, processed_validation, raw_images_path)
     save_images(test_df, processed_test, raw_images_path)
 
 

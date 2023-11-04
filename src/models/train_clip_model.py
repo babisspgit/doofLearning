@@ -54,13 +54,14 @@ from src.utils.vocab_build import get_vocab
 
 #         return self.processor(text=final_text, images=img)
 
-
+# clip accepts context length of 77.
+# check not implemented error in method change_context_size
 MAX_SEQ_LEN = 77
 
 
 def main():
-    batch_size = 32
-    num_epochs = 10
+    batch_size = 32  # also 64
+    num_epochs = 30
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -85,6 +86,10 @@ def main():
         "data/processed/train", transformations=img_processor
     )
 
+    val_dataset = DatasetRecipes(
+        "data/processed/validation", transformations=img_processor
+    )
+
     # build vocab, add tokens
     # vocab = get_vocab(train_dataset, tokenizer=tokenizer)
 
@@ -96,6 +101,9 @@ def main():
         img_list, text_list = [], []
         for img, _text in batch:
             img = torch.tensor(img["pixel_values"][0])
+
+            # if len(_text) > MAX_SEQ_LEN:
+            #     _text = _text[:MAX_SEQ_LEN]
 
             # processed_text = torch.tensor(text_pipeline(_text), dtype=torch.int64)
             processed_text = torch.tensor(
@@ -115,23 +123,26 @@ def main():
         train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
     )
 
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_batch
+    )
+
     model = CLIPModel.from_pretrained(pretrained_str)
     model.to(device)
 
     optimizer = torch.optim.Adam(
         model.parameters(), lr=5e-5, betas=(0.9, 0.98), eps=1e-6, weight_decay=0.2
     )
-    loss_img = nn.CrossEntropyLoss()
-    loss_txt = nn.CrossEntropyLoss()
 
     for epoch in range(num_epochs):
         pbar = tqdm(train_loader)
+        train_accuracy = 0
         model.train()
         for batch in pbar:
             optimizer.zero_grad()
 
             images, input_seq = batch
-            _, seq_len = input_seq.size()
+            btch_sz, seq_len = input_seq.size()
             if seq_len > MAX_SEQ_LEN:
                 input_seq = input_seq[:, :MAX_SEQ_LEN]
 
@@ -152,19 +163,57 @@ def main():
             # )
 
             loss = outputs.loss
+            logits_per_image = outputs.logits_per_image
+            softmaxed_logits = nn.functional.softmax(logits_per_image, dim=1)
+            preds = torch.argmax(softmaxed_logits, dim=-1).cpu().detach()
+            ground_truths = torch.arange(btch_sz)
 
-            # # Compute loss
-            # ground_truth = torch.arange(len(images), dtype=torch.long, device=device)
-            # total_loss = (
-            #     loss_img(logits_per_image, ground_truth)
-            #     + loss_txt(logits_per_text, ground_truth)
-            # ) / 2
+            # print(preds.shape, ground_truths.shape)
+
+            # print(logits_per_image)
+            # print("*" * 10)
+            # print(softmaxed_logits)
+            # print("*" * 10)
+            # print(preds)
+            # print("*" * 10)
+            # print(ground_truths)
+            # print("*" * 10)
+
+            train_accuracy += (ground_truths == preds).sum().item()
 
             # Backward pass
             loss.backward()
             optimizer.step()
 
             pbar.set_description(f"Epoch {epoch}/{num_epochs}, Loss: {loss.item():.4f}")
+
+        print(f"Training accuracy: {train_accuracy/len(train_dataset)}")
+
+        for batch in tqdm(val_loader, desc="Validation:"):
+            model.eval()
+            val_accuracy = 0
+            with torch.no_grad():
+                images, input_seq = batch
+                btch_sz, seq_len = input_seq.size()
+                if seq_len > MAX_SEQ_LEN:
+                    input_seq = input_seq[:, :MAX_SEQ_LEN]
+
+                outputs = model(
+                    pixel_values=images, input_ids=input_seq, return_loss=True
+                )
+                logits_per_image = outputs.logits_per_image
+                preds = (
+                    torch.argmax(nn.functional.softmax(logits_per_image, dim=1), dim=-1)
+                    .detach()
+                    .cpu()
+                )
+                ground_truths = torch.arange(btch_sz)
+
+                accuracy = (ground_truths == preds).sum().item()
+
+                val_accuracy += accuracy
+
+        print(val_accuracy / len(val_dataset))
 
 
 if __name__ == "__main__":
