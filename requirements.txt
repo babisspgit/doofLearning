@@ -4,10 +4,14 @@
 # external requirements
 click
 
-spacy
+
 torch
 torchvision
-torchtext==0.6.0
+torchtext
 pandas
 numpy
 matplotlib
+ftfy
+regex
+tqdm
+git+https://github.com/openai/CLIP.git
