@@ -23,6 +23,7 @@ MAX_SEQ_LEN = 77
 def main():
     # hyperparams
     lr = 5e-5
+    save_per_n_epochs = 100  # if None, save every epoch
     #
 
     logger = logging.getLogger(__name__)
@@ -189,15 +190,27 @@ def main():
         )
 
         # save model
-        torch.save(
-            {
-                # 'epoch': epoch,
-                "model_state_dict": model.state_dict(),
-                # 'optimizer_state_dict': optimizer.state_dict(),
-                # 'loss': total_loss,
-            },
-            f"models/clip_finetuned.pt",
-        )
+        if save_per_n_epochs:
+            if epoch % save_per_n_epochs == 0 and epoch > 1:
+                torch.save(
+                    {
+                        # 'epoch': epoch,
+                        "model_state_dict": model.state_dict(),
+                        # 'optimizer_state_dict': optimizer.state_dict(),
+                        # 'loss': total_loss,
+                    },
+                    f"models/clip_finetuned_{epoch}.pt",
+                )
+        else:
+            torch.save(
+                {
+                    # 'epoch': epoch,
+                    "model_state_dict": model.state_dict(),
+                    # 'optimizer_state_dict': optimizer.state_dict(),
+                    # 'loss': total_loss,
+                },
+                f"models/clip_finetuned.pt",
+            )
 
 
 if __name__ == "__main__":

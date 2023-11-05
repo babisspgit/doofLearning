@@ -52,7 +52,7 @@ class ClipSymmetricLoss(nn.Module):
 
         # symmetric loss function
         labels = torch.arange(logits.shape[0])
-        # Cross_Ent : Applying a softmax function to the logits and then computing the negative log likelihood of the correct classes (which is what cross-entropy measures).        
-        loss_i = self.cross_entropy_loss(logits, labels) # for image to text (rows)
-        loss_t = self.cross_entropy_loss(logits, labels) # for text to image (columns)
-        return (loss_i + loss_t) / 2 # Average of the two losses
+        # Cross_Ent : Applying a softmax function to the logits and then computing the negative log likelihood of the correct classes (which is what cross-entropy measures).
+        loss_i = self.cross_entropy_loss(logits, labels)  # for image to text (rows)
+        loss_t = self.cross_entropy_loss(logits, labels)  # for text to image (columns)
+        return (loss_i + loss_t) / 2  # Average of the two losses

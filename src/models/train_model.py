@@ -47,7 +47,7 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
 
     train_transform = transforms.Compose(
         [
-            transforms.Resize([169, 169]),
+            transforms.Resize([224, 224]),  # like CLIP
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
         ]
@@ -59,34 +59,28 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
     vocab = get_vocab(train_dataset, tokenizer=tokenizer)  # BertTokenizer
 
     # Pipeline
-    device = torch.device("cpu")
-
     text_pipeline = lambda x: [vocab[token] for token in tokenizer(x)]
 
     def collate_batch(batch):
-        img_list, text_list, lengths = [], [], []
+        img_list, text_list = [], []
         for img, _text in batch:
+            if len(_text) > MAX_SEQ_LEN:
+                _text = _text[:MAX_SEQ_LEN]
             processed_text = torch.tensor(text_pipeline(_text), dtype=torch.int64)
             text_list.append(processed_text)
             img_list.append(img.unsqueeze(0))
-            lengths.append(processed_text.size(0))
-        lengths = torch.tensor(lengths)
         text_list[0] = nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(
             text_list[0]
         )
         padded_text_list = nn.utils.rnn.pad_sequence(text_list, batch_first=True)
-        return (
-            torch.cat(img_list, axis=0).to(device),
-            padded_text_list.to(device),
-            lengths.to(device),  # might not actually need this
-        )
+        return (torch.cat(img_list, axis=0).to(device), padded_text_list.to(device))
 
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
     )
 
     img_size = train_dataset[0][0].shape[-2:]
-    patches_size = (13, 13)
+    patches_size = (32, 32)
 
     vit_options = {
         "img_dims": img_size,
@@ -111,35 +105,36 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
     model.to(device)
 
     optim = torch.optim.AdamW(model.parameters(), lr=lr)  # Should we add weight decay?
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-    #     optim,
-    # )  # or stepLR
 
-    loss_fn = ConstrastiveLoss(m=1.0)
+    text_loss = nn.CrossEntropyLoss()
+    image_loss = nn.CrossEntropyLoss()
 
-    for epoch in tqdm(range(n_epochs)):
+    for epoch in range(n_epochs):
         model.train()
         epoch_loss = 0
-        for data in train_loader:
-            img, text, _ = data  # from collate_fn they are on device
+        pbar = tqdm(train_loader)
+        for data in pbar:
+            optim.zero_grad()
 
-            # img_batch_features, text_batch_features = model(img, text)
+            img, text = data
 
-            # optim.zero_grad()
-            # loss = loss_fn(img_batch_features, text_batch_features)
-            # loss.backward()
+            curr_batch_size = img.shape[0]
 
-            # optim.step()
+            logits_per_text, logits_per_image = model(img, text)
+            labels = torch.arange(curr_batch_size).to(device)
 
-            # epoch_loss += loss.detach().numpy()
+            batch_text_loss = text_loss(logits_per_text, labels)
+            batch_image_loss = image_loss(logits_per_image, labels)
 
-            # return
+            loss = (batch_image_loss + batch_text_loss) / 2.0
 
-        logger.info(f"Epoch {epoch} loss: {epoch/batch_size}")
+            loss.backward()
+
+            optim.step()
+
+        logger.info(f"Epoch {epoch} loss: {loss}")
 
         # Save the model state dict
-
-        # scheduler.step()
 
 
 if __name__ == "__main__":
@@ -151,7 +146,7 @@ if __name__ == "__main__":
 
     options = {
         "data_path": Path(r"data/processed"),
-        "batch_size": 1,
+        "batch_size": 32,
         "n_epochs": 20,
         "seed": 0,
         "lr": 1e-4,
