@@ -1,3 +1,5 @@
+import logging
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -14,7 +16,7 @@ import wandb
 
 
 BATCH_SIZE = 64
-EPOCHS = 1000
+EPOCHS = 1000  # 300 looks best up to now
 MAX_SEQ_LEN = 77
 
 
@@ -22,6 +24,8 @@ def main():
     # hyperparams
     lr = 5e-5
     #
+
+    logger = logging.getLogger(__name__)
 
     wandb.init(project=f"clip_finetuning")
     wandb.config = {"learning_rate": lr, "epochs": EPOCHS, "batch_size": BATCH_SIZE}
@@ -32,8 +36,10 @@ def main():
 
     if Path("models/clip_finetuned.pt").exists():
         load_path = "models/clip_finetuned.pt"
+        logger.info(f"Saved model found at {load_path}.")
     else:
         load_path = "ViT-B/32"
+        logger.info(f"Saved model not found. Using {load_path}.")
 
     model, preprocess = clip.load(load_path, device=device, jit=False)
     model.context_length = MAX_SEQ_LEN
@@ -195,4 +201,6 @@ def main():
 
 
 if __name__ == "__main__":
+    log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    logging.basicConfig(level=logging.INFO, format=log_fmt)
     main()
