@@ -7,12 +7,14 @@ from tqdm import tqdm
 import clip
 from PIL import Image
 
+from pathlib import Path
+
 from src.data.make_dataset import DatasetRecipes
 import wandb
 
 
 BATCH_SIZE = 64
-EPOCHS = 100
+EPOCHS = 1000
 MAX_SEQ_LEN = 77
 
 
@@ -28,7 +30,12 @@ def main():
 
     print(f"Device: {device}")
 
-    model, preprocess = clip.load("ViT-B/32", device=device, jit=False)
+    if Path("models/clip_finetuned.pt").exists():
+        load_path = "models/clip_finetuned.pt"
+    else:
+        load_path = "ViT-B/32"
+
+    model, preprocess = clip.load(load_path, device=device, jit=False)
     model.context_length = MAX_SEQ_LEN
 
     train_data_path = r"data/processed/train"
