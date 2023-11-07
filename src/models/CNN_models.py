@@ -117,7 +117,8 @@ class VGG(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.Conv2d(256, 256, kernel_s
+                      ize=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(256, 512, kernel_size=3, padding=1),
@@ -162,3 +163,27 @@ class VGG(nn.Module):
         classification_output = self.classifier(x)
         embedding_output = self.embedding(x)
         return classification_output, embedding_output
+    
+    
+
+class VGGImageEncoder(nn.Module):
+    def __init__(self, output_dim):
+        super(VGGImageEncoder, self).__init__()
+        # Loading a pre-trained VGG-16 model
+        self.vgg = models.vgg16(pretrained=True)
+        
+        # Removing the last classifier layer
+        self.vgg.classifier = nn.Sequential(*list(self.vgg.classifier.children())[:-1])
+        
+        # Adding a new layer for projection to the embedding dimension we want
+        self.projection = nn.Linear(in_features=4096, out_features=output_dim)
+        
+    def forward(self, x):
+        # Output from the VGG feature extractor
+        with torch.no_grad():  # Don't track gradients for the pre-trained part
+            features = self.vgg(x)
+        # Project features to the target embedding dimension
+        embeddings = self.projection(features)
+        return embeddings
+
+        

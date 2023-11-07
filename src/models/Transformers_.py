@@ -44,7 +44,7 @@ class Attention(nn.Module):
         )
 
         attention_logits = torch.matmul(keys, values.transpose(1, 2))
-        attention_logits *= self.scale
+        attention_logits *= self.scale 
         attention = torch.nn.functional.softmax(attention_logits, dim=-1)
 
         out = torch.matmul(attention, values)
