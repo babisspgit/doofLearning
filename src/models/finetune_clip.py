@@ -165,9 +165,18 @@ def main():
                 texts = texts.to(device)
 
                 logits_per_image, logits_per_text = model(images, texts)
+
                 ground_truth = torch.arange(
                     len(images), dtype=torch.long, device=device
                 )
+
+
+                total_loss = (
+                    loss_img(logits_per_image, ground_truth)
+                    + loss_txt(logits_per_text, ground_truth)
+                ) / 2
+
+                val_loss += total_loss.item()
 
                 probs = logits_per_image.softmax(dim=-1)
                 preds = torch.argmax(probs, dim=-1)
@@ -179,6 +188,7 @@ def main():
         wandb.log(
             {
                 "training_loss": training_loss_ / (len(train_dataset)),
+                'validation_loss': val_loss/ len(val_dataset),
             }
         )
 
