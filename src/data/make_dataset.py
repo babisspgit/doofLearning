@@ -26,21 +26,38 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
+class DatasetRecipesTriplet(Dataset):
+    def __init__(
+        self, data_path: str | Path, columns: list[str], img_transformations=None
+    ) -> None:
+        pass
+
+    def __len__(self):
+        pass
+
+    def __getitem__(self, idx):
+        pass
+
+
 class DatasetRecipes(Dataset):
     def __init__(
         self,
         data_path,
+        columns: list[str],
         transformations=None,
     ):
         super(DatasetRecipes, self).__init__()
-
-        # self.MAX_SEQ_LEN = 512
-        # self.VOCAB_SIZE = 50_000
 
         csv_path = Path(data_path) / "recipes.csv"
 
         self.recipes_df = pd.read_csv(csv_path)
         self.image_path = Path(data_path) / "images"
+
+        if columns:
+            self.columns = columns[:]
+        else:
+            # Use all
+            self.columns = ["Title", "Cleaned_Ingredients", "Instructions"]
 
         self.transformations = transformations
         if not transformations:
@@ -63,6 +80,13 @@ class DatasetRecipes(Dataset):
         ingredients = data_point.Cleaned_Ingredients
         instructions = data_point.Instructions
 
+        raw_text = ""
+        for col in self.columns:
+            raw_text += data_point[col] + " "
+
+        # Remove the trailing space
+        raw_text = raw_text.strip()
+
         # Prepare the image
         image_name = data_point.Image_Name + ".jpg"
         image_path = self.image_path / image_name
@@ -73,7 +97,7 @@ class DatasetRecipes(Dataset):
             print(f"Image index: {idx}")
             return None, None
 
-        return self.transformations(img), title + " " + ingredients + " " + instructions
+        return self.transformations(img), raw_text
 
 
 def img_exists(img_path, entropy_lim=4.5):
