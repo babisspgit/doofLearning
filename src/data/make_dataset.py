@@ -30,13 +30,86 @@ class DatasetRecipesTriplet(Dataset):
     def __init__(
         self, data_path: str | Path, columns: list[str], img_transformations=None
     ) -> None:
-        pass
+        super(DatasetRecipesTriplet, self).__init__()
+
+        csv_path = Path(data_path) / "recipes.csv"
+
+        self.recipes_df = pd.read_csv(csv_path)
+        self.image_path = Path(data_path) / "images"
+
+        if columns:
+            self.columns = columns[:]
+        else:
+            # Use all
+            self.columns = ["Title", "Cleaned_Ingredients", "Instructions"]
+
+        self.transformations = img_transformations
+        if not img_transformations:
+            self.transformations = transforms.Compose(
+                [
+                    transforms.Resize((224, 224)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,)),
+                ]
+            )
 
     def __len__(self):
-        pass
+        return len(self.recipes_df)
 
     def __getitem__(self, idx):
-        pass
+        data_point = self.recipes_df.iloc[idx]
+
+        # Prepare the text data
+        raw_text = ""
+        for col in self.columns:
+            raw_text += data_point[col] + " "
+
+        # Remove the trailing space
+        raw_text = raw_text.strip()
+
+        # Prepare the image
+        image_name = data_point.Image_Name + ".jpg"
+        image_path = self.image_path / image_name
+
+        try:
+            img = Image.open(image_path)
+        except FileNotFoundError as e:
+            print(f"Image index: {idx}")
+            return None, None
+
+        # Get the negative pairs
+        neg_idx = torch.randint(len(self.recipes_df), (1,)).item()
+
+        neg_data_point = self.recipes_df.iloc[neg_idx]
+
+        # Prepare the text data
+        neg_raw_text = ""
+        for col in self.columns:
+            neg_raw_text += neg_data_point[col] + " "
+
+        # Remove the trailing space
+        neg_raw_text = neg_raw_text.strip()
+
+        # Prepare the image
+        neg_image_name = neg_data_point.Image_Name + ".jpg"
+        neg_image_path = self.image_path / neg_image_name
+
+        try:
+            neg_img = Image.open(neg_image_path)
+        except FileNotFoundError as e:
+            print(f"Image index: {neg_idx}")
+            return None, None
+
+        # Apply image transformations only once
+        img = self.transformations(img)
+        neg_img = self.transformations(neg_img)
+
+        # Recombine in text and image anchor-pos-neg triplets
+        img_dict = {"anchor": img, "positive": raw_text, "negative": neg_raw_text}
+
+        text_dict = {"anchor": raw_text, "positive": img, "negative": neg_img}
+
+        return img_dict, text_dict
 
 
 class DatasetRecipes(Dataset):
@@ -76,10 +149,6 @@ class DatasetRecipes(Dataset):
         data_point = self.recipes_df.iloc[idx]
 
         # Prepare the text data
-        title = data_point.Title
-        ingredients = data_point.Cleaned_Ingredients
-        instructions = data_point.Instructions
-
         raw_text = ""
         for col in self.columns:
             raw_text += data_point[col] + " "
