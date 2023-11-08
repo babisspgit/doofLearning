@@ -20,10 +20,6 @@ from src.utils.vocab_build import get_vocab, CustomTokenizer
 import wandb
 
 
-# MAX_SEQ_LEN = 2500  # Maximum number of tokens per text input
-# VOCAB_SIZE = 50000
-
-
 def set_seed(seed=0):
     random.seed(seed)
     np.random.seed(seed)
@@ -61,8 +57,14 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
         ]
     )
 
-    train_dataset = DatasetRecipes(train_path, transformations=train_transform)
-    val_dataset = DatasetRecipes(validation_path, transformations=train_transform)
+    columns = ["Title", "Ingredients"]
+
+    train_dataset = DatasetRecipes(
+        train_path, columns=columns, transformations=train_transform
+    )
+    val_dataset = DatasetRecipes(
+        validation_path, columns=columns, transformations=train_transform
+    )
 
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
     tokenizer = CustomTokenizer()
