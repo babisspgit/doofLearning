@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-
-from torchvision.models import vgg16
+import torchvision.models as models
 
 
 class ImageEmbeddingCNN(nn.Module):
@@ -99,75 +98,57 @@ class UNet(nn.Module):
         x = self.fc(x)
         return x  # Returning the output embedding
 
-    # VGG model
 
-
-class VGG(nn.Module):
-    def __init__(self, num_classes, embedding_size):
+class VGG(nn.Module):  ## works!!
+    def __init__(self, embedding_size):
         super(VGG, self).__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
+            # Using numbers of filters that are divisible by 8
+            nn.Conv2d(
+                3, 64, kernel_size=3, padding=1
+            ),  # Increased to the next number divisible by 8
             nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),  # Kept the same
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.Conv2d(
+                64, 128, kernel_size=3, padding=1
+            ),  # Increased to the next number divisible by 8
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),  # Kept the same
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.Conv2d(
+                128, 256, kernel_size=3, padding=1
+            ),  # Reduced depth but kept divisible by 8
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),  # Kept the same
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            # Reduced overall depth and kept filters divisible by 8
         )
         self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
+
+        # Classifier part with layers having units divisible by 8
         self.classifier = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 4096),
+            nn.Linear(256 * 7 * 7, 1024),  # Increased to make it divisible by 8
             nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, num_classes),
-        )
-        self.embedding = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, embedding_size),
+            nn.Dropout(0.5),
+            nn.Linear(
+                1024, embedding_size
+            ),  # Assuming embedding_size is also divisible by 8
         )
 
     def forward(self, x):
         x = self.features(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        classification_output = self.classifier(x)
-        embedding_output = self.embedding(x)
-        return classification_output, embedding_output
+        embedding_output = self.classifier(x)
+        return embedding_output
 
 
-class VGGImageEncoder(nn.Module):
+class VGGImageEncoder(nn.Module):  ## works!
     def __init__(self, output_dim):
         super(VGGImageEncoder, self).__init__()
         # Loading a pre-trained VGG-16 model
@@ -175,7 +156,6 @@ class VGGImageEncoder(nn.Module):
 
         # Removing the last classifier layer
         self.vgg.classifier = nn.Sequential(*list(self.vgg.classifier.children())[:-1])
-
         # Adding a new layer for projection to the embedding dimension we want
         self.projection = nn.Linear(in_features=4096, out_features=output_dim)
 

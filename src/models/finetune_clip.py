@@ -1,26 +1,20 @@
 import logging
-
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-
 from tqdm import tqdm
-
 import clip
 from clip import model
 
 from PIL import Image
-
 from pathlib import Path
-
 from src.data.make_dataset import DatasetRecipes
 import wandb
 
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 EPOCHS = 1000  # 300 looks best up to now
 MAX_SEQ_LEN = 666
-
 
 def main():
     # hyperparams
