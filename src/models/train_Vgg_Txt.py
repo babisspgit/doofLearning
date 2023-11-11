@@ -17,7 +17,7 @@ from torchvision import transforms
 from src.data.make_dataset import DatasetRecipes
 from src.models.models import VGGpre_SingleTextModel, VGGpre_Bert
 
-from src.utils.vocab_build import get_vocab, tokenizer
+from src.utils.vocab_build import get_vocab, CustomTokenizer
 
 from transformers import BertTokenizer
 
@@ -54,17 +54,17 @@ def main(data_path, n_epochs=20, batch_size=4, seed=0, lr=1e-4):
         ]
     )
 
-    train_dataset = DatasetRecipes(train_path, transformations=train_transform)
+    train_dataset = DatasetRecipes(train_path, [], transformations=train_transform)
 
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
     
     #btokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    
-    vocab = get_vocab(train_dataset, tokenizer=tokenizer)  # BertTokenizer
-      # BertTokenizer
+    tokenizer = CustomTokenizer()  
+    vocab, MAX_SEQ_LEN = get_vocab(train_dataset, tokenizer=tokenizer.tokenize)
+    VOCAB_SIZE = len(vocab)
 
     # Pipeline
-    text_pipeline = lambda x: [vocab[token] for token in tokenizer(x)]
+    text_pipeline = lambda x: [vocab[token] for token in tokenizer.tokenize(x)]
 
     def collate_batch(batch):
         img_list, text_list = [], []
