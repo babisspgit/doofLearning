@@ -1,3 +1,13 @@
+./data/
+./models
+wandb
+logs/
+*.pt
+*.pkl
+outputs/
+multirun/
+src/app
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

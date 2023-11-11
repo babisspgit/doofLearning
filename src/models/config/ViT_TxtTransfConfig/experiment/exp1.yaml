@@ -1,0 +1,28 @@
+# @package _group_
+
+# Paths
+data_path: ${hydra:runtime.cwd}/data/processed
+
+# Training parameters
+lr: 1e-4
+batch_size: 64
+n_epochs: 50
+seed: 0
+
+save_per_n_epochs: 10 # Save model every n epochs
+
+# Model parameters
+embed_dim: 256
+
+vit:
+  image_dims: 256
+  patch_dims: 32
+  num_heads: 2
+  num_blocks: 2
+
+
+# Text transformer parameters
+text_transf:
+  num_heads: 2
+  num_blocks: 2
+
