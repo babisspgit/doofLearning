@@ -4,6 +4,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import clip
+from clip import model
+
 from PIL import Image
 from pathlib import Path
 from src.data.make_dataset import DatasetRecipes
@@ -12,7 +14,7 @@ import wandb
 
 BATCH_SIZE = 32
 EPOCHS = 1000  # 300 looks best up to now
-MAX_SEQ_LEN = 77
+MAX_SEQ_LEN = 666
 
 def main():
     # hyperparams
@@ -29,7 +31,7 @@ def main():
 
     print(f"Device: {device}")
 
-    if Path("models/clip_finetuned.pt").exists():
+    if Path("models/clip_finetuned_666.pt").exists():  ## Change the name to open!
         load_path = "models/clip_finetuned.pt"
         logger.info(f"Saved model found at {load_path}.")
     else:
@@ -37,7 +39,7 @@ def main():
         logger.info(f"Saved model not found. Using {load_path}.")
 
     model, preprocess = clip.load(load_path, device=device, jit=False)
-    model.context_length = MAX_SEQ_LEN
+    # model.context_length = MAX_SEQ_LEN
 
     train_data_path = r"data/processed/train"
     val_data_path = r"data/processed/validation"
@@ -159,9 +161,17 @@ def main():
                 texts = texts.to(device)
 
                 logits_per_image, logits_per_text = model(images, texts)
+
                 ground_truth = torch.arange(
                     len(images), dtype=torch.long, device=device
                 )
+
+                total_loss = (
+                    loss_img(logits_per_image, ground_truth)
+                    + loss_txt(logits_per_text, ground_truth)
+                ) / 2
+
+                val_loss += total_loss.item()
 
                 probs = logits_per_image.softmax(dim=-1)
                 preds = torch.argmax(probs, dim=-1)
@@ -172,13 +182,15 @@ def main():
 
         wandb.log(
             {
-                "training_loss": training_loss_ / (len(train_dataset)),
+                "training_loss": training_loss_ / (len(train_dataset)) * BATCH_SIZE,
+                "validation_loss": val_loss / len(val_dataset),
             }
         )
 
         wandb.log(
             {
-                "training_accuracy": training_accuracy / (len(train_dataset)),
+                "training_accuracy": training_accuracy
+                / (len(train_dataset) * BATCH_SIZE),
                 "validation_accuracy": val_accuracy / len(val_dataset),
             }
         )

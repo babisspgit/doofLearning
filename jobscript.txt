@@ -16,4 +16,5 @@ module swap cuda/11.6
 
 source ../venv/bin/activate
 
-python src/models/finetune_clip.py  
+
+python src/models/train_ViT_Txt_Transf.py
