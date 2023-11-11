@@ -138,19 +138,22 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
     img_size = train_dataset[0][0].shape[-2:]
     patches_size = (32, 32)
 
+    num_heads = 2
+    n_blocks = 2
+
     vit_options = {
         "img_dims": img_size,
         "channels": 3,
         "patch_sizes": patches_size,
         "embed_dim": embed_dim,
         "projection_dims": embed_dim,
-        "num_heads": 1,
-        "num_layers": 1,
+        "num_heads": num_heads,
+        "num_layers": n_blocks,
     }
 
     text_transf_options = {
-        "num_heads": 1,
-        "num_blocks": 1,
+        "num_heads": num_heads,
+        "num_blocks": n_blocks,
         "embed_dims": embed_dim,
         "projection_dims": embed_dim,
         "vocab_size": VOCAB_SIZE,
@@ -251,7 +254,7 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
 
         # Save the model state dict
         if epoch % save_per_n_epochs == 0:
-            torch.save(model.state_dict(), Path("models/ViT_Text_Tranf.pt"))
+            torch.save(model.state_dict(), Path("models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"))
 
 
 if __name__ == "__main__":
