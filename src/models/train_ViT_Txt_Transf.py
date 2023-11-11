@@ -17,6 +17,7 @@ from src.data.make_dataset import DatasetRecipes
 from src.models.models import TransformersSingleTextModel
 from src.utils.vocab_build import get_vocab, CustomTokenizer
 
+
 import wandb
 
 
@@ -37,7 +38,12 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
     #
 
     wandb.init(project=f"ViT_Text_Transf")
-    wandb.config = {"learning_rate": lr, "epochs": EPOCHS, "batch_size": batch_size}
+    wandb.config = {
+        "learning_rate": lr,
+        "epochs": EPOCHS,
+        "batch_size": batch_size,
+        "embed_dim": embed_dim,
+    }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {device}")
@@ -138,13 +144,13 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
         "patch_sizes": patches_size,
         "embed_dim": embed_dim,
         "projection_dims": embed_dim,
-        "num_heads": 4,
-        "num_layers": 4,
+        "num_heads": 1,
+        "num_layers": 1,
     }
 
     text_transf_options = {
-        "num_heads": 4,
-        "num_blocks": 4,
+        "num_heads": 1,
+        "num_blocks": 1,
         "embed_dims": embed_dim,
         "projection_dims": embed_dim,
         "vocab_size": VOCAB_SIZE,
@@ -165,6 +171,7 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
     image_loss = nn.CrossEntropyLoss()
 
     for epoch in range(EPOCHS):
+        # Training
         model.train()
         train_loss = 0
         train_accuracy = 0
@@ -175,9 +182,9 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
             img, text = data
 
             curr_batch_size = img.shape[0]
-
-            logits_per_text, logits_per_image = model(img, text)
             labels = torch.arange(curr_batch_size).to(device)
+
+            logits_per_text, logits_per_image, _, _ = model(img, text)
 
             batch_text_loss = text_loss(logits_per_text, labels)
             batch_image_loss = image_loss(logits_per_image, labels)
@@ -187,7 +194,6 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
             loss.backward()
 
             optim.step()
-            scheduler.step()
 
             train_loss += loss.item()
 
@@ -200,16 +206,11 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
 
             pbar.set_description(f"Epoch {epoch}/{EPOCHS}, Loss: {loss.item():.4f}")
 
-        # scheduler.step()
+        # Step scheduler
+        scheduler.step()
 
-        # Log training epoch data
-        wandb.log(
-            {
-                "training_loss": train_loss / len(train_dataset) * batch_size,
-                "training_accuracy": train_accuracy / len(train_dataset),
-            }
-        )
-
+        # Validation
+        model.eval()
         pbar = tqdm(val_loader)
         val_accuracy = 0
         val_loss = 0
@@ -217,8 +218,9 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
             with torch.no_grad():
                 img, text = batch
                 curr_batch_size = img.shape[0]
+                labels = torch.arange(curr_batch_size).to(device)
 
-                logits_per_text, logits_per_image = model(img, text)
+                logits_per_text, logits_per_image, _, _ = model(img, text)
                 labels = torch.arange(curr_batch_size).to(device)
 
                 batch_text_loss = text_loss(logits_per_text, labels)
@@ -240,6 +242,8 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
         # Log training epoch data
         wandb.log(
             {
+                "training_loss": train_loss / len(train_dataset) * batch_size,
+                "training_accuracy": train_accuracy / len(train_dataset),
                 "validation_loss": val_loss / len(val_dataset) * batch_size,
                 "validation_accuracy": val_accuracy / len(val_dataset),
             }
@@ -259,11 +263,11 @@ if __name__ == "__main__":
 
     options = {
         "data_path": Path(r"data/processed"),
-        "batch_size": 16,
+        "batch_size": 64,
         "n_epochs": 300,
         "seed": 0,
         "lr": 1e-4,
-        "embed_dim": 256,
+        "embed_dim": 128,
     }
 
     main(**options)

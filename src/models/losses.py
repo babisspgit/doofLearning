@@ -3,6 +3,25 @@ import torch.nn as nn
 import numpy as np
 
 
+def symmetric_loss(img_emb, text_emb, logit_scale):
+    p = 2  # for l2 normalization
+    img_emb_norm = torch.nn.functional.normalize(img_emb, p, dim=1)
+    text_emb_norm = torch.nn.functional.normalize(text_emb, p, dim=1)
+
+    # scaled pairwise cosine similarities [n, n]
+    logits = torch.matmul(img_emb_norm, text_emb_norm.transpose(1, 0)) * np.exp(
+        logit_scale
+    )
+    logits = logits.to(img_emb.device)
+
+    # symmetric loss function
+    labels = torch.arange(logits.shape[0])
+    # Cross_Ent : Applying a softmax function to the logits and then computing the negative log likelihood of the correct classes (which is what cross-entropy measures).
+    loss_i = nn.CrossEntropyLoss()(logits, labels)  # for image to text (rows)
+    loss_t = nn.CrossEntropyLoss()(logits.t(), labels)  # for text to image (columns)
+    return (loss_i + loss_t) / 2  # Average of the two losses
+
+
 class ConstrastiveLoss(nn.Module):
     def __init__(self, m=1.0):
         super().__init__()
@@ -12,8 +31,8 @@ class ConstrastiveLoss(nn.Module):
     def forward(
         self, item1: torch.Tensor, item2: torch.Tensor, similar: bool = True
     ) -> torch.float32:
-        # if flag == 1 or true : Similar items
-        # if flag == 0 or false : Dissimilar items
+        # if similar is true : Similar items
+        # if similar is false : Dissimilar items
 
         L2_dist = torch.pairwise_distance(item1, item2)
 
