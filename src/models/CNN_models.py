@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 
+from torchvision.models import vgg16
+
+
 class ImageEmbeddingCNN(nn.Module):
     def __init__(self):
         super(ImageEmbeddingCNN, self).__init__()
@@ -18,7 +21,6 @@ class ImageEmbeddingCNN(nn.Module):
         self.fc2 = nn.Linear(256, 128)
         self.relu5 = nn.ReLU()
         self.fc3 = nn.Linear(128, 64)
-    
 
     def forward(self, x):
         x = self.conv1(x)
@@ -39,7 +41,6 @@ class ImageEmbeddingCNN(nn.Module):
         return x
 
 
-
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
@@ -58,6 +59,7 @@ class DoubleConv(nn.Module):
         x = self.bn2(x)
         x = self.relu2(x)
         return x
+
 
 class Down(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -84,21 +86,22 @@ class UNet(nn.Module):
         # self.fc = nn.Linear(512, embedding_size)  # FC layer to generate the final embedding
 
     def forward(self, x):
-        #x = x.view(-1, 64)
-        
+        # x = x.view(-1, 64)
+
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
         x5 = self.down4(x4)
         x = self.outc(x)
-         x = self.avgpool(x5)
+        x = self.avgpool(x5)
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x  # Returning the output embedding
-        
-    
+
     # VGG model
+
+
 class VGG(nn.Module):
     def __init__(self, num_classes, embedding_size):
         super(VGG, self).__init__()
@@ -117,8 +120,7 @@ class VGG(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_s
-                      ize=3, padding=1),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(256, 512, kernel_size=3, padding=1),
@@ -163,21 +165,20 @@ class VGG(nn.Module):
         classification_output = self.classifier(x)
         embedding_output = self.embedding(x)
         return classification_output, embedding_output
-    
-    
+
 
 class VGGImageEncoder(nn.Module):
     def __init__(self, output_dim):
         super(VGGImageEncoder, self).__init__()
         # Loading a pre-trained VGG-16 model
-        self.vgg = models.vgg16(pretrained=True)
-        
+        self.vgg = vgg16(pretrained=True)
+
         # Removing the last classifier layer
         self.vgg.classifier = nn.Sequential(*list(self.vgg.classifier.children())[:-1])
-        
+
         # Adding a new layer for projection to the embedding dimension we want
         self.projection = nn.Linear(in_features=4096, out_features=output_dim)
-        
+
     def forward(self, x):
         # Output from the VGG feature extractor
         with torch.no_grad():  # Don't track gradients for the pre-trained part
@@ -185,5 +186,3 @@ class VGGImageEncoder(nn.Module):
         # Project features to the target embedding dimension
         embeddings = self.projection(features)
         return embeddings
-
-        

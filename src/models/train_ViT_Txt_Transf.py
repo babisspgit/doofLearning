@@ -20,6 +20,9 @@ from src.utils.vocab_build import get_vocab, CustomTokenizer
 
 import wandb
 
+import hydra
+from omegaconf import OmegaConf
+
 
 def set_seed(seed=0):
     random.seed(seed)
@@ -30,19 +33,47 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
-    # haparams
-    lr = lr
-    save_per_n_epochs = 100
-    EPOCHS = n_epochs
-    #
+@hydra.main(config_path="config/ViT_TxtTransfConfig", config_name="default_config.yaml",version_base=None)
+def main(config):
+    
+    print(f"configuration: \n {OmegaConf.to_yaml(config)}")
+
+    # Unpack hparams
+    hparams = config['_group_'] # wtf is this __group__ ?
+
+    seed = hparams.seed
+    lr = hparams.lr
+    embed_dim = hparams.embed_dim
+    batch_size = hparams.batch_size
+    n_epochs = hparams.n_epochs
+    save_per_n_epochs = hparams.save_per_n_epochs
+
+    # data path
+    data_path = Path(hparams.data_path)
+
+    # ViT
+    image_dims = hparams.vit.image_dims
+    patch_dims = hparams.vit.patch_dims
+    num_heads_vit = hparams.vit.num_heads
+    num_blocks_vit = hparams.vit.num_blocks
+
+    # Text Transformer
+    num_heads_text = hparams.text_transf.num_heads
+    num_blocks_text = hparams.text_transf.num_blocks
+
+
+
+
+    
 
     wandb.init(project=f"ViT_Text_Transf")
     wandb.config = {
         "learning_rate": lr,
-        "epochs": EPOCHS,
+        "epochs": n_epochs,
         "batch_size": batch_size,
         "embed_dim": embed_dim,
+        'vit':hparams.vit,
+        'text_transf': hparams.text_transf
     }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,13 +88,13 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
 
     train_transform = transforms.Compose(
         [
-            transforms.Resize([224, 224]),
+            transforms.Resize([image_dims, image_dims]),
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
         ]
     )
 
-    columns = ["Title", "Ingredients"]
+    columns = []
 
     train_dataset = DatasetRecipes(
         train_path, columns=columns, transformations=train_transform
@@ -117,11 +148,7 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
             # Since the batching is manual, in this fcn, I need to add batch dim
             img_list.append(img.unsqueeze(0))
 
-        # text_list[0] = nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(
-        #     text_list[0]
-        # )
-
-        # padded_text_list = nn.utils.rnn.pad_sequence(text_list, batch_first=True)
+      
         return (
             torch.cat(img_list, axis=0).to(device),
             torch.cat(text_list, axis=0).to(device),
@@ -136,26 +163,23 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
     )
 
     img_size = train_dataset[0][0].shape[-2:]
-    patches_size = (32, 32)
+    patches_size = (patch_dims, patch_dims)
 
-    num_heads = 2
-    n_blocks = 2
+
 
     vit_options = {
         "img_dims": img_size,
         "channels": 3,
         "patch_sizes": patches_size,
         "embed_dim": embed_dim,
-        "projection_dims": embed_dim,
-        "num_heads": num_heads,
-        "num_layers": n_blocks,
+        "num_heads": num_heads_vit,
+        "num_layers": num_blocks_vit,
     }
 
     text_transf_options = {
-        "num_heads": num_heads,
-        "num_blocks": n_blocks,
+        "num_heads": num_heads_text,
+        "num_blocks": num_blocks_text,
         "embed_dims": embed_dim,
-        "projection_dims": embed_dim,
         "vocab_size": VOCAB_SIZE,
         "max_seq_len": MAX_SEQ_LEN,
     }
@@ -166,14 +190,13 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
     # optim = torch.optim.AdamW(model.parameters(), lr=lr)  # Should we add weight decay?
 
     optim = torch.optim.Adam(
-        model.parameters(), lr=lr, weight_decay=1e-5
-    )  # weight decay: L2 penalty
+        model.parameters(), lr=lr)  # weight decay: L2 penalty 1e-5
     scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=10, gamma=0.5)
 
     text_loss = nn.CrossEntropyLoss()
     image_loss = nn.CrossEntropyLoss()
 
-    for epoch in range(EPOCHS):
+    for epoch in range(n_epochs):
         # Training
         model.train()
         train_loss = 0
@@ -207,7 +230,7 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
 
             train_accuracy += accuracy
 
-            pbar.set_description(f"Epoch {epoch}/{EPOCHS}, Loss: {loss.item():.4f}")
+            pbar.set_description(f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}")
 
         # Step scheduler
         scheduler.step()
@@ -240,7 +263,7 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
 
                 val_accuracy += accuracy
 
-                pbar.set_description(f"Epoch {epoch}/{EPOCHS}, Loss: {loss.item():.4f}")
+                pbar.set_description(f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}")
 
         # Log training epoch data
         wandb.log(
@@ -264,13 +287,4 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.info("Starting training...")
 
-    options = {
-        "data_path": Path(r"data/processed"),
-        "batch_size": 64,
-        "n_epochs": 300,
-        "seed": 0,
-        "lr": 1e-4,
-        "embed_dim": 128,
-    }
-
-    main(**options)
+    main()

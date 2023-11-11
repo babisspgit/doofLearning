@@ -14,13 +14,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from src.data.make_dataset import DatasetRecipes
-from src.models.models import TransformersSingleTextModel, Transformers_Bert, VGG_SingleTextModel, VGGpre_SingleTextModel, VGG_Bert, VGGpre_Bert
+from src.models.models import TransformersSingleTextModel#, Transformers_Bert, VGG_SingleTextModel, VGGpre_SingleTextModel, VGG_Bert, VGGpre_Bert
 
 from src.utils.vocab_build import get_vocab, tokenizer
 
-from transformers import BertTokenizer
+# from transformers import BertTokenizer
 
-from src.models.losses import ConstrastiveLoss, ClipSymmetricLoss
+# from src.models.losses import ConstrastiveLoss, ClipSymmetricLoss
 
 MAX_SEQ_LEN = 2500  # Maximum number of tokens per text input
 VOCAB_SIZE = 50000
@@ -104,10 +104,10 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
     model = TransformersSingleTextModel(vit_options, text_transf_options)
     model.to(device)
     
-    # freeze ????   
-    if (model == VGGpre_Bert) or (model == VGGpre_SingleTextModel):
-       for param in model.img_model.vgg.features.parameters():
-            param.requires_grad = False
+    # # freeze ????   
+    # if (model == VGGpre_Bert) or (model == VGGpre_SingleTextModel):
+    #    for param in model.img_model.vgg.features.parameters():
+    #         param.requires_grad = False
             
 
     optim = torch.optim.AdamW(model.parameters(), lr=lr)  # Should we add weight decay?
