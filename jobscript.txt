@@ -16,4 +16,4 @@ module swap cuda/11.6
 
 source ../venv/bin/activate
 
-python src/models/train_ViT_Txt_Transf.py
+python src/models/train_ViT_Txt_Transf.py --multirun experiment=exp1,exp2,exp3,exp4

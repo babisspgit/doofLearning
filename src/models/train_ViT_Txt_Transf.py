@@ -33,13 +33,16 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-@hydra.main(config_path="config/ViT_TxtTransfConfig", config_name="default_config.yaml",version_base=None)
+@hydra.main(
+    config_path="config/ViT_TxtTransfConfig",
+    config_name="default_config.yaml",
+    version_base=None,
+)
 def main(config):
-    
     print(f"configuration: \n {OmegaConf.to_yaml(config)}")
 
     # Unpack hparams
-    hparams = config['_group_'] # wtf is this __group__ ?
+    hparams = config["_group_"]  # wtf is this __group__ ?
 
     seed = hparams.seed
     lr = hparams.lr
@@ -61,19 +64,14 @@ def main(config):
     num_heads_text = hparams.text_transf.num_heads
     num_blocks_text = hparams.text_transf.num_blocks
 
-
-
-
-    
-
     wandb.init(project=f"ViT_Text_Transf")
     wandb.config = {
         "learning_rate": lr,
         "epochs": n_epochs,
         "batch_size": batch_size,
         "embed_dim": embed_dim,
-        'vit':hparams.vit,
-        'text_transf': hparams.text_transf
+        "vit": hparams.vit,
+        "text_transf": hparams.text_transf,
     }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -148,7 +146,6 @@ def main(config):
             # Since the batching is manual, in this fcn, I need to add batch dim
             img_list.append(img.unsqueeze(0))
 
-      
         return (
             torch.cat(img_list, axis=0).to(device),
             torch.cat(text_list, axis=0).to(device),
@@ -164,8 +161,6 @@ def main(config):
 
     img_size = train_dataset[0][0].shape[-2:]
     patches_size = (patch_dims, patch_dims)
-
-
 
     vit_options = {
         "img_dims": img_size,
@@ -189,9 +184,8 @@ def main(config):
 
     # optim = torch.optim.AdamW(model.parameters(), lr=lr)  # Should we add weight decay?
 
-    optim = torch.optim.Adam(
-        model.parameters(), lr=lr)  # weight decay: L2 penalty 1e-5
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=10, gamma=0.5)
+    optim = torch.optim.Adam(model.parameters(), lr=lr)  # weight decay: L2 penalty 1e-5
+    # scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=10, gamma=0.5)
 
     text_loss = nn.CrossEntropyLoss()
     image_loss = nn.CrossEntropyLoss()
@@ -233,7 +227,7 @@ def main(config):
             pbar.set_description(f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}")
 
         # Step scheduler
-        scheduler.step()
+        # scheduler.step()
 
         # Validation
         model.eval()
@@ -263,7 +257,9 @@ def main(config):
 
                 val_accuracy += accuracy
 
-                pbar.set_description(f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}")
+                pbar.set_description(
+                    f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}"
+                )
 
         # Log training epoch data
         wandb.log(
@@ -277,7 +273,12 @@ def main(config):
 
         # Save the model state dict
         if epoch % save_per_n_epochs == 0:
-            torch.save(model.state_dict(), Path("models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"))
+            torch.save(
+                model.state_dict(),
+                Path(
+                    "models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
+                ),
+            )
 
 
 if __name__ == "__main__":

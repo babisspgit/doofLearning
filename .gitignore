@@ -5,6 +5,7 @@ logs/
 *.pt
 *.pkl
 outputs/
+multirun/
 src/app
 
 # Byte-compiled / optimized / DLL files
