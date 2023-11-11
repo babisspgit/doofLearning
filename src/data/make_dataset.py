@@ -83,7 +83,7 @@ def img_exists(img_path, entropy_lim=4.5):
         if entropy < entropy_lim:
             return False
 
-    except FileNotFoundError:
+    except: #FileNotFoundError:
         return False
 
     return True

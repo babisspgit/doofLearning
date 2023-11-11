@@ -1,4 +1,5 @@
 import logging
+
 import random
 
 from pathlib import Path
@@ -22,7 +23,7 @@ from transformers import BertTokenizer
 
 from src.models.losses import ConstrastiveLoss, ClipSymmetricLoss
 
-MAX_SEQ_LEN = 2500  # Maximum number of tokens per text input
+MAX_SEQ_LEN = 512  # Maximum number of tokens per text input
 VOCAB_SIZE = 50000
 
 
@@ -35,7 +36,7 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
+def main(data_path, n_epochs=20, batch_size=4, seed=0, lr=1e-4):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {device}")
 
@@ -56,7 +57,11 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
     train_dataset = DatasetRecipes(train_path, transformations=train_transform)
 
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
+    
+    #btokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    
     vocab = get_vocab(train_dataset, tokenizer=tokenizer)  # BertTokenizer
+      # BertTokenizer
 
     # Pipeline
     text_pipeline = lambda x: [vocab[token] for token in tokenizer(x)]
@@ -76,7 +81,7 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
         return (torch.cat(img_list, axis=0).to(device), padded_text_list.to(device))
 
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
+        train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch,num_workers=0
     )
 
     img_size = train_dataset[0][0].shape[-2:]
@@ -100,15 +105,27 @@ def main(data_path, n_epochs=20, batch_size=16, seed=0, lr=1e-4):
         "vocab_size": VOCAB_SIZE,
         "max_seq_len": MAX_SEQ_LEN,
     }
-
-    model = TransformersSingleTextModel(vit_options, text_transf_options)
+    
+    #textBert_transf_options = {
+    #    "num_heads": 1,
+    #    "num_blocks": 3,
+    #    "embed_dims": 128,
+    #    "projection_dims": 128,
+    #    "vocab_size": VOCAB_SIZE,
+    #    "max_seq_len": MAX_SEQ_LEN,
+    #}
+    
+    model = Transformers_Bert(vit_options, text_transf_options)
+    #model = VGGpre_SingleTextModel(vit_options, text_transf_options)  ## works
+    #model = VGG_SingleTextModel(vit_options, text_transf_options)      ## works
+    #model = TransformersSingleTextModel(vit_options, text_transf_options)
     model.to(device)
     
     # freeze ????   
-    if (model == VGGpre_Bert) or (model == VGGpre_SingleTextModel):
-       for param in model.img_model.vgg.features.parameters():
-            param.requires_grad = False
-            
+    #if (model == VGGpre_Bert) or (model == VGGpre_SingleTextModel):
+    #   for param in model.img_model.vgg.features.parameters():
+    #        param.requires_grad = False
+    #        
 
     optim = torch.optim.AdamW(model.parameters(), lr=lr)  # Should we add weight decay?
 
