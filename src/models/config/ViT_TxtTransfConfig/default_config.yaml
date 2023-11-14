@@ -1,2 +1,14 @@
+# Paths
+data_path: ${hydra:runtime.cwd}/data/processed
+
+batch_size: 32
+n_epochs: 50
+seed: 0
+lr: 0.0001
+scheduler_step: 20
+scheduler_gamma: 0.5
+save_per_n_epochs: 10 # Save model every n epochs
+
+
 defaults:
     - experiment: exp1

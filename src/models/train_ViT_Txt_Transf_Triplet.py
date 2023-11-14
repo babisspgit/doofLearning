@@ -13,10 +13,11 @@ from torch.utils.data import DataLoader
 
 from torchvision import transforms
 
-from src.data.make_dataset import DatasetRecipes
+from src.data.make_dataset import DatasetRecipesTriplet
 from src.models.models import TransformersSingleTextModel
 from src.utils.vocab_build import get_vocab, CustomTokenizer
 
+from src.models.losses import triplet_loss
 
 import wandb
 
@@ -31,6 +32,10 @@ def set_seed(seed=0):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
+
+
+def process_text(raw_text, pipeline):
+    pass
 
 
 @hydra.main(
@@ -96,10 +101,10 @@ def main(config):
 
     columns = []
 
-    train_dataset = DatasetRecipes(
+    train_dataset = DatasetRecipesTriplet(
         train_path, columns=columns, transformations=train_transform
     )
-    val_dataset = DatasetRecipes(
+    val_dataset = DatasetRecipesTriplet(
         validation_path, columns=columns, transformations=train_transform
     )
 
@@ -117,46 +122,73 @@ def main(config):
     # Pipeline
     text_pipeline = lambda x: [vocab_[token] for token in tokenizer.tokenize(x)]
 
+    ###########################################
+    ## Bad way to def fcns, but prototyping now
+    def process_text(raw_text):
+        if len(raw_text) > MAX_SEQ_LEN - 2:
+            raw_text = raw_text[: MAX_SEQ_LEN - 2]
+
+        processed_text = text_pipeline(raw_text)
+
+        # Insert bos token and eos token
+
+        processed_text = [vocab_["<bos>"]] + processed_text + [vocab_["<eos>"]]
+
+        # pad
+        # NOTE: I am padding all the way from the right ONLY, torch uses a padding method from both sides
+        pad = [vocab_["<pad>"]] * (MAX_SEQ_LEN - len(processed_text))
+
+        processed_text = processed_text + pad
+
+        processed_text = torch.tensor(processed_text, dtype=torch.int64)
+
+        return processed_text
+
     def collate_batch(batch):
-        img_list, text_list = [], []
-        for img, _text in batch:
+        """
+        Every element in the batch is 2 dictionaries: 1 for image and 1 for text
+        Many things to process...
+        """
+        anchor_text_list, neg_text_list = [], []
+        anchor_img_list, neg_img_list = [], []
+        for a in batch:
             # Protect against larger sequencies
             # -2 to account for BOS and EOS tokens
-            if len(_text) > MAX_SEQ_LEN - 2:
-                _text = _text[: MAX_SEQ_LEN - 2]
+            anch_dict = a[0]  # for 1 image anchor, pos and neg text
+            negs_dict = a[1]  # for 1 text anchor, pos and neg images
 
-            processed_text = text_pipeline(_text)
+            # Unpacking
+            anchor_image = anch_dict["img"]
+            anchor_text = anch_dict["text"]
 
-            # Insert bos token and eos token
+            neg_img = negs_dict["img"]
+            neg_text = negs_dict["text"]
 
-            processed_text = [vocab_["<bos>"]] + processed_text + [vocab_["<eos>"]]
+            # Process the texts
+            processed_anchor_text = process_text(anchor_text)
+            processed_neg_text = process_text(neg_text)
 
-            # pad
-            # NOTE: I am padding all the way from the right ONLY, torch uses a padding method from both sides
-            pad = [vocab_["<pad>"]] * (MAX_SEQ_LEN - len(processed_text))
-
-            processed_text = processed_text + pad
-
-            processed_text = torch.tensor(processed_text, dtype=torch.int64)
-
-            # nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(text_list[0])
-
-            # Prepare text and image batch
-            # processed_text = torch.tensor(text_pipeline(_text), dtype=torch.int64)
-            text_list.append(processed_text.unsqueeze(0))
+            # Build the batch lists
+            anchor_text_list.append(processed_anchor_text.unsqueeze(0))
+            neg_text_list.append(processed_neg_text.unsqueeze(0))
 
             # Since the batching is manual, in this fcn, I need to add batch dim
-            img_list.append(img.unsqueeze(0))
+            anchor_img_list.append(anchor_image.unsqueeze(0))
+            neg_img_list.append(neg_img.unsqueeze(0))
 
-        # text_list[0] = nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(
-        #     text_list[0]
-        # )
+        # Return dictionaries, like the dataset class in __getitem__
 
-        # padded_text_list = nn.utils.rnn.pad_sequence(text_list, batch_first=True)
-        return (
-            torch.cat(img_list, axis=0).to(device),
-            torch.cat(text_list, axis=0).to(device),
-        )
+        anchors_dict = {
+            "img": torch.cat(anchor_img_list, axis=0).to(device),
+            "text": torch.cat(anchor_text_list, axis=0).to(device),
+        }
+
+        negs_dict = {
+            "img": torch.cat(neg_img_list, axis=0).to(device),
+            "text": torch.cat(neg_text_list, axis=0).to(device),
+        }
+
+        return anchors_dict, negs_dict
 
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
@@ -166,7 +198,7 @@ def main(config):
         val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_batch
     )
 
-    img_size = train_dataset[0][0].shape[-2:]
+    img_size = (image_dims, image_dims)
     patches_size = (patch_dims, patch_dims)
 
     # num_heads = 2
@@ -199,9 +231,6 @@ def main(config):
         optim, step_size=scheduler_step, gamma=scheduler_gamma
     )
 
-    text_loss = nn.CrossEntropyLoss()
-    image_loss = nn.CrossEntropyLoss()
-
     for epoch in range(n_epochs):
         # Training
         model.train()
@@ -211,15 +240,28 @@ def main(config):
         for data in pbar:
             optim.zero_grad()
 
-            img, text = data
+            anchors_dict, negs_dict = data
 
-            curr_batch_size = img.shape[0]
-            labels = torch.arange(curr_batch_size).to(device)
+            # For images
+            anchor_img = anchors_dict["img"]
+            anchor_text = anchors_dict["text"]
 
-            logits_per_text, logits_per_image, _, _ = model(img, text)
+            neg_img = negs_dict["img"]
+            neg_text = negs_dict["text"]
 
-            batch_text_loss = text_loss(logits_per_text, labels)
-            batch_image_loss = image_loss(logits_per_image, labels)
+            # Now pass the relevant parts from the corresponding parts of the model
+            anchor_img_embeddings = model.img_model(anchor_img)
+            anchor_text_embeddings = model.text_model(anchor_text)
+
+            neg_text_embeddings = model.text_model(neg_text)
+            neg_img_embeddings = model.img_model(neg_img)
+
+            batch_image_loss = triplet_loss(
+                anchor_img_embeddings, anchor_text_embeddings, neg_text_embeddings
+            )
+            batch_text_loss = triplet_loss(
+                anchor_text_embeddings, anchor_img_embeddings, neg_img_embeddings
+            )
 
             loss = (batch_image_loss + batch_text_loss) / 2.0
 
@@ -229,12 +271,12 @@ def main(config):
 
             train_loss += loss.item()
 
-            probs = torch.nn.functional.softmax(logits_per_text, dim=1)
-            preds = torch.argmax(probs, dim=-1)
+            # probs = torch.nn.functional.softmax(logits_per_text, dim=1)
+            # preds = torch.argmax(probs, dim=-1)
 
-            accuracy = (preds == labels).sum().item()
+            # accuracy = (preds == labels).sum().item()
 
-            train_accuracy += accuracy
+            # train_accuracy += accuracy
 
             pbar.set_description(f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}")
 
@@ -246,28 +288,46 @@ def main(config):
         pbar = tqdm(val_loader)
         val_accuracy = 0
         val_loss = 0
-        for batch in pbar:
+        for data in pbar:
             with torch.no_grad():
-                img, text = batch
-                curr_batch_size = img.shape[0]
-                labels = torch.arange(curr_batch_size).to(device)
+                img_dict, text_dict = data
 
-                logits_per_text, logits_per_image, _, _ = model(img, text)
-                labels = torch.arange(curr_batch_size).to(device)
+                # For images
+                anchor_img = img_dict["anchor"]
+                pos_text = img_dict["positive"]
+                neg_text = img_dict["negative"]
 
-                batch_text_loss = text_loss(logits_per_text, labels)
-                batch_image_loss = image_loss(logits_per_image, labels)
+                # For text
+                anchor_text = text_dict["anchor"]
+                pos_img = text_dict["positive"]
+                neg_img = text_dict["negative"]
+
+                # Now pass the relevant parts from the corresponding parts of the model
+                anchor_img_embeddings = model.img_model(anchor_img)
+                pos_text_embeddings = model.text_model(pos_text)
+                neg_text_embeddings = model.text_model(neg_text)
+
+                anchor_text_embeddings = model.text_model(anchor_text)
+                pos_img_embeddings = model.img_model(pos_img)
+                neg_img_embeddings = model.img_model(neg_img)
+
+                batch_image_loss = triplet_loss(
+                    anchor_img_embeddings, pos_text_embeddings, neg_text_embeddings
+                )
+                batch_text_loss = triplet_loss(
+                    anchor_text_embeddings, pos_img_embeddings, neg_img_embeddings
+                )
 
                 loss = (batch_image_loss + batch_text_loss) / 2.0
 
                 val_loss += loss.item()
 
-                probs = torch.nn.functional.softmax(logits_per_text, dim=1)
-                preds = torch.argmax(probs, dim=-1)
+                # probs = torch.nn.functional.softmax(logits_per_text, dim=1)
+                # preds = torch.argmax(probs, dim=-1)
 
-                accuracy = (preds == labels).sum().item()
+                # accuracy = (preds == labels).sum().item()
 
-                val_accuracy += accuracy
+                # val_accuracy += accuracy
 
                 pbar.set_description(
                     f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}"
@@ -277,9 +337,9 @@ def main(config):
         wandb.log(
             {
                 "training_loss": train_loss / len(train_dataset) * batch_size,
-                "training_accuracy": train_accuracy / len(train_dataset),
+                # "training_accuracy": train_accuracy / len(train_dataset),
                 "validation_loss": val_loss / len(val_dataset) * batch_size,
-                "validation_accuracy": val_accuracy / len(val_dataset),
+                # "validation_accuracy": val_accuracy / len(val_dataset),
             }
         )
 
@@ -288,7 +348,7 @@ def main(config):
             torch.save(
                 model.state_dict(),
                 Path(
-                    "models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
+                    "models/ViT_Text_Tranf_Triplet_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
                 ),
             )
             logger.info("Saved model")

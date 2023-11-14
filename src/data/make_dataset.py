@@ -28,7 +28,7 @@ def set_seed(seed=0):
 
 class DatasetRecipesTriplet(Dataset):
     def __init__(
-        self, data_path: str | Path, columns: list[str], img_transformations=None
+        self, data_path: str | Path, columns: list[str], transformations=None
     ) -> None:
         super(DatasetRecipesTriplet, self).__init__()
 
@@ -43,8 +43,8 @@ class DatasetRecipesTriplet(Dataset):
             # Use all
             self.columns = ["Title", "Cleaned_Ingredients", "Instructions"]
 
-        self.transformations = img_transformations
-        if not img_transformations:
+        self.transformations = transformations
+        if not transformations:
             self.transformations = transforms.Compose(
                 [
                     transforms.Resize((224, 224)),
@@ -105,11 +105,11 @@ class DatasetRecipesTriplet(Dataset):
         neg_img = self.transformations(neg_img)
 
         # Recombine in text and image anchor-pos-neg triplets
-        img_dict = {"anchor": img, "positive": raw_text, "negative": neg_raw_text}
+        anchors = {"img": img, "text": raw_text}
 
-        text_dict = {"anchor": raw_text, "positive": img, "negative": neg_img}
+        negatives = {"img": neg_img, "text": neg_raw_text}
 
-        return img_dict, text_dict
+        return anchors, negatives
 
 
 class DatasetRecipes(Dataset):
@@ -176,7 +176,7 @@ def img_exists(img_path, entropy_lim=4.5):
         if entropy < entropy_lim:
             return False
 
-    except: #FileNotFoundError:
+    except:  # FileNotFoundError:
         return False
 
     return True
