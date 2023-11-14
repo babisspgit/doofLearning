@@ -4,7 +4,7 @@
 data_path: ${hydra:runtime.cwd}/data/processed
 
 # Training parameters
-lr: 5*1e-5
+lr: 0.00005
 batch_size: 64
 n_epochs: 50
 seed: 0

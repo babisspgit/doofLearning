@@ -16,7 +16,6 @@ class TransformersSingleTextModel(nn.Module):
 
         self.img_model = ViT(**img_options_dict)
         self.text_model = TextTransformer(**text_options_dict)
-        return img_out, text_out
 
         # Magic or learnable number? Found in clip
         if logit_scale_init_value:
@@ -43,16 +42,6 @@ class TransformersSingleTextModel(nn.Module):
         logits_per_image = logits_per_text.t()
 
         return logits_per_text, logits_per_image, text_embeddings, img_embeddings
-
-
-class CLIP_(nn.Module):
-    def __init__(self, pretrained: str = "") -> None:
-        # Pretrained:
-        # "openai/clip-vit-base-patch32"
-        self.clip_model = CLIPModel.from_pretrained(pretrained)
-
-    def forward(self, img, text):
-        return self.clip_model(img, text)
 
 
 ## Vit + bert
@@ -84,7 +73,7 @@ class Transformers_Bert2(nn.Module):
 
         self.img_model = ViT(**img_options_dict)
         self.text_model = bert_model()  # (**text_options_dict)
-        return img_out, text_out
+        # return img_out, text_out
 
         # Magic or learnable number? Found in clip
         if logit_scale_init_value:
