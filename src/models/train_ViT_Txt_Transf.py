@@ -70,8 +70,6 @@ def main(config):
         "epochs": n_epochs,
         "batch_size": batch_size,
         "embed_dim": embed_dim,
-        "vit": hparams.vit,
-        "text_transf": hparams.text_transf,
     }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -146,6 +144,11 @@ def main(config):
             # Since the batching is manual, in this fcn, I need to add batch dim
             img_list.append(img.unsqueeze(0))
 
+        # text_list[0] = nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(
+        #     text_list[0]
+        # )
+
+        # padded_text_list = nn.utils.rnn.pad_sequence(text_list, batch_first=True)
         return (
             torch.cat(img_list, axis=0).to(device),
             torch.cat(text_list, axis=0).to(device),
@@ -160,7 +163,10 @@ def main(config):
     )
 
     img_size = train_dataset[0][0].shape[-2:]
-    patches_size = (patch_dims, patch_dims)
+    patches_size = (32, 32)
+
+    num_heads = 2
+    n_blocks = 2
 
     vit_options = {
         "img_dims": img_size,
@@ -279,6 +285,7 @@ def main(config):
                     "models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
                 ),
             )
+            logger.info("Saved model")
 
 
 if __name__ == "__main__":
