@@ -44,7 +44,7 @@ class Attention(nn.Module):
         )
 
         attention_logits = torch.matmul(keys, values.transpose(1, 2))
-        attention_logits *= self.scale 
+        attention_logits *= self.scale
         attention = torch.nn.functional.softmax(attention_logits, dim=-1)
 
         out = torch.matmul(attention, values)
@@ -91,7 +91,7 @@ class EncoderBlock(nn.Module):
     def forward(self, x):
         attention_output = self.attention(x)
         x = self.layer_norm1(x + attention_output)
-        x = self.dropout(x) 
+        x = self.dropout(x)
 
         fc_out = self.fc(x)
 
@@ -145,7 +145,7 @@ class ViT(nn.Module):
 
         # Encoder layers
         enc_layers = []
-        for i in range(num_layers):
+        for _ in range(num_layers):
             enc_layers.append(
                 EncoderBlock(embed_dim, num_heads, fc_hidden_dims, dropout)
             )
@@ -165,6 +165,7 @@ class ViT(nn.Module):
 
         # add positional embedding to each patch
         positions = self.positional_embeddings.to(x.device, dtype=x.dtype)
+
         x = positions + x
 
         x = self.dropout(x)
@@ -257,36 +258,35 @@ class TextTransformer(nn.Module):
         # return self.projection_layer(x)
 
 
-#def bert_model():
+# def bert_model():
 #    model = BertModel.from_pretrained('bert-base-uncased')
 
-#`       
+# `
 #   return model
 
 
 from transformers import BertModel
 import torch.nn as nn
 
+
 class bert_model(nn.Module):
     def __init__(self, output_dim):
         super().__init__()
         # Load the pretrained BERT model
-        #self.embedding_dim = 
-        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        # self.embedding_dim =
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
 
         # Projection layer to map BERT's output to the desired embedding dimension
         self.projection_layer = nn.Linear(self.bert.config.hidden_size, output_dim)
 
-    def forward(self, input_ids): #, attention_mask=None):
+    def forward(self, input_ids, attention_mask=None):
         # Forward pass through BERT
-        outputs = self.bert(input_ids=input_ids)#, attention_mask=attention_mask)
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
 
         # Take the outputs from the last hidden state
-        last_hidden_state = outputs.last_hidden_state
+        pooling_output = outputs.pooler_output
 
         # Apply the projection layer to every token output
-        embeddings = self.projection_layer(last_hidden_state)
+        embeddings = self.projection_layer(pooling_output)
 
         return embeddings
-
-
