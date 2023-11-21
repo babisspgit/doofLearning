@@ -4,17 +4,17 @@
 
 
 # Model parameters
-embed_dim: 64
+embed_dim: 128
 
 vit:
   image_dims: 256
   patch_dims: 32
   num_heads: 2
-  num_blocks: 2
+  num_blocks: 4
 
 
 # Text transformer parameters
 text_transf:
   num_heads: 2
-  num_blocks: 2
+  num_blocks: 4
 

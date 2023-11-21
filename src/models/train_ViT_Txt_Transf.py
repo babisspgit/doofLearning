@@ -56,6 +56,9 @@ def main(config):
 
     # data path(s)
     data_path = Path(config.data_path)
+    save_path = Path(config.model_save_path)
+    save_path.mkdir(exist_ok=True, parents=True)
+    save_model_path = save_path / "ViT_Text_Tranf.pt"
 
     # Unpack experiment specific params
     hparams = config["_group_"]  # wtf is this __group__ ?
@@ -287,9 +290,7 @@ def main(config):
         if epoch % save_per_n_epochs == 0:
             torch.save(
                 model.state_dict(),
-                Path(
-                    "models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
-                ),
+                save_model_path,
             )
             logger.info("Saved model")
 
