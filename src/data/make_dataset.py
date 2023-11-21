@@ -75,7 +75,7 @@ class DatasetRecipesSep(Dataset):
 
 class DatasetRecipesTriplet(Dataset):
     def __init__(
-        self, data_path: str | Path, columns: list[str], transformations=None
+        self, data_path: Path, columns: list[str], transformations=None
     ) -> None:
         super(DatasetRecipesTriplet, self).__init__()
 
