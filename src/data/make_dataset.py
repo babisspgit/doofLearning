@@ -26,6 +26,53 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
+class DatasetRecipesSep(Dataset):
+    def __init__(
+        self,
+        data_path,
+        transformations=None,
+    ):
+        super(DatasetRecipesSep, self).__init__()
+
+        csv_path = Path(data_path) / "recipes.csv"
+
+        self.recipes_df = pd.read_csv(csv_path)
+        self.image_path = Path(data_path) / "images"
+
+        self.transformations = transformations
+        if not transformations:
+            self.transformations = transforms.Compose(
+                [
+                    transforms.Resize((256, 256)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,)),
+                ]
+            )
+
+    def __len__(self):
+        return len(self.recipes_df)
+
+    def __getitem__(self, idx):
+        data_point = self.recipes_df.iloc[idx]
+
+        # Prepare the text data
+        title = data_point.Title
+        ingredients = data_point.Cleaned_Ingredients
+        instructions = data_point.Instructions
+
+        # Prepare the image
+        image_name = data_point.Image_Name + ".jpg"
+        image_path = self.image_path / image_name
+
+        try:
+            img = Image.open(image_path)
+        except FileNotFoundError as e:
+            print(f"Image not found at index: {idx}")
+            return None, None
+
+        return self.transformations(img), title, ingredients, instructions
+
+
 class DatasetRecipesTriplet(Dataset):
     def __init__(
         self, data_path: str | Path, columns: list[str], transformations=None
