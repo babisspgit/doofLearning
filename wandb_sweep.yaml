@@ -1,0 +1,26 @@
+program: src/models/train_ViT_Txt_Transf_2.py
+method: random
+metric:
+  name: validation_loss
+  goal: minimize
+parameters:
+  epochs:
+    value: 50
+  batch_size:
+    values: [32, 64]
+  learning_rate:
+    values: [0.0001, 0.0005,  0.00001]
+  embedding_dimension:
+    values: [64,128, 256, 512]
+  vit_num_heads:
+    values: [2, 4, 8]
+  vit_num_blocks:
+    values: [2,4, 8, 12]
+  vit_image_dims:
+    value: 256
+  vit_patch_dims:
+    value: 32
+  text_num_heads:
+    values: [2, 4, 8]
+  text_num_blocks:
+    values: [2,4, 8, 12]
