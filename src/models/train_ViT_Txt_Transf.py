@@ -59,6 +59,7 @@ def main(config):
     save_path = Path(config.model_save_path)
     save_path.mkdir(exist_ok=True, parents=True)
     save_model_path = save_path / "ViT_Text_Transf.pt"
+    save_model_full_path = save_path / "ViT_Text_Transf_full.pt"
 
     # Unpack experiment specific params
     hparams = config["_group_"]  # wtf is this __group__ ?
@@ -297,6 +298,7 @@ def main(config):
                 model.state_dict(),
                 save_model_path,
             )
+            torch.save(model, save_model_full_path)
             logger.info("Saved model")
 
 

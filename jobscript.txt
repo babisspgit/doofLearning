@@ -16,4 +16,4 @@ module swap cuda/11.6
 
 source ../venv/bin/activate
 
-python src/models/try_Bert.py
+python src/models/train_ViT_Txt_Transf.py

@@ -1,16 +1,43 @@
+import logging
+
+
 import torch
 import torch.nn as nn
 
 from src.models import train_ViT_Txt_Transf
 
+from pathlib import Path
+
+import pandas as pd
+
 
 def main():
-    # Load the model I want.
+    # Paths
+    recipes_df_path = Path("models/inference/recipes.csv")
+
+    # Load the recipes dataframe to get the text answer
+    logger.info("Loading csv")
+    recipes_df = pd.read_csv(recipes_df_path)
+
+    # Get the embeddings
+    logger.info("Loading text embeddings")
+    text_embeddings_path = Path(
+        "models/inference/embeddings/ViT_Text/embeddings_Title__text.pt"
+    )
+    text_embeddings = torch.load(text_embeddings_path)
+
+    assert text_embeddings.shape[0] == len(
+        recipes_df
+    ), "Number of text embeddings is not the same as the number of recipes"
+
+    return
+
+    # Load the model I want. Careful to use the same model that generated the embeddings
     model_options = {
         # Model options
     }
-    model = # Model
-    
+    # model = # Model
+
     # Load its parameters/state_dict from the respective .pt file in models/
     model.load_state_dict(torch.load(PATH))
     model.eval()
@@ -30,4 +57,8 @@ def main():
 
 
 if __name__ == "__main__":
+    log_fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    logging.basicConfig(level=logging.INFO, format=log_fmt)
+
+    logger = logging.getLogger(__name__)
     main()
