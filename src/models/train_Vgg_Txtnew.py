@@ -13,15 +13,14 @@ from torch.utils.data import DataLoader
 
 from torchvision import transforms
 
-from src.data.make_dataset import DatasetRecipes
-from src.models.models import TransformersSingleTextModel
-from src.utils.vocab_build import get_vocab, CustomTokenizer
-
+from src.data.make_dataset_vgg import DatasetRecipes
+from src.models.models import VGGpre_SingleTextModel #VGGpre_Bert
+from src.utils.vocab_build import get_vocab, CustomTokenizer, BertTokenizerr
+#from transformers import BertTokenizer
 
 import wandb
 
-import hydra
-from omegaconf import OmegaConf
+#from omegaconf import OmegaConf
 
 
 def set_seed(seed=0):
@@ -32,72 +31,36 @@ def set_seed(seed=0):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
 
+# epochs 100, batch_size=32, emb_dim=resize=256
+def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Device: {device}")
 
-@hydra.main(
-    config_path="config/ViT_TxtTransfConfig",
-    config_name="default_config.yaml",
-    version_base=None,
-)
-def main(config):
-    print(f"configuration: \n {OmegaConf.to_yaml(config)}")
 
-    # Unpack hparams
-    seed = config.seed
-
-    set_seed(seed=seed)
-
-    lr = config.lr
-    batch_size = config.batch_size
-    n_epochs = config.n_epochs
-    save_per_n_epochs = config.save_per_n_epochs
-
-    scheduler_step = config.scheduler_step
-    scheduler_gamma = config.scheduler_gamma
-
-    # data path(s)
-    data_path = Path(config.data_path)
-    save_path = Path(config.model_save_path)
-    save_path.mkdir(exist_ok=True, parents=True)
-    save_model_path = save_path / "ViT_Text_Transf.pt"
-
-    # Unpack experiment specific params
-    hparams = config["_group_"]  # wtf is this __group__ ?
-
-    embed_dim = hparams.embed_dim
-
-    # ViT
-    image_dims = hparams.vit.image_dims
-    patch_dims = hparams.vit.patch_dims
-    num_heads_vit = hparams.vit.num_heads
-    num_blocks_vit = hparams.vit.num_blocks
-
-    # Text Transformer
-    num_heads_text = hparams.text_transf.num_heads
-    num_blocks_text = hparams.text_transf.num_blocks
-
-    wandb.init(project=f"ViT_Text_Transf")
+    wandb.init(project=f"VGG_Text_Transf")
     wandb.config = {
         "learning_rate": lr,
         "epochs": n_epochs,
         "batch_size": batch_size,
-        "embed_dim": embed_dim,
+        "embed_dim": 256,
     }
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Device: {device}")
+    set_seed(
+        seed=seed
+    )  # To make sure, because the same seed will be used for test set in another file
 
     train_path = data_path / "train"
     validation_path = data_path / "validation"
 
     train_transform = transforms.Compose(
         [
-            transforms.Resize([image_dims, image_dims]),
+            transforms.Resize([256, 256]),
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
         ]
     )
 
-    columns = ["Title"]
+    columns = [] 
 
     train_dataset = DatasetRecipes(
         train_path, columns=columns, transformations=train_transform
@@ -107,15 +70,10 @@ def main(config):
     )
 
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
+    #tokenizer = BertTokenizerr()
+
     tokenizer = CustomTokenizer()
-
-    cust_name = "_".join(columns)
-    vocab_path = Path(f"models/simple_vocab_{cust_name}")
-
-    vocab_, MAX_SEQ_LEN = get_vocab(
-        train_dataset, tokenizer=tokenizer.tokenize, vocab_save_path=vocab_path
-    )
-
+    vocab_, MAX_SEQ_LEN = get_vocab(train_dataset, tokenizer=tokenizer.tokenize)
     VOCAB_SIZE = len(vocab_)
 
     # print(vocab_["<bos>"], vocab_["<eos>"], vocab_["<pad>"], vocab_["<unk>"])
@@ -159,7 +117,6 @@ def main(config):
         # text_list[0] = nn.ConstantPad1d((0, MAX_SEQ_LEN - text_list[0].shape[0]), 0)(
         #     text_list[0]
         # )
-
         # padded_text_list = nn.utils.rnn.pad_sequence(text_list, batch_first=True)
         return (
             torch.cat(img_list, axis=0).to(device),
@@ -175,41 +132,38 @@ def main(config):
     )
 
     img_size = train_dataset[0][0].shape[-2:]
-    patches_size = (patch_dims, patch_dims)
+    patches_size = (32, 32)
 
-    # num_heads = 2
-    # n_blocks = 2
 
     vit_options = {
         "img_dims": img_size,
         "channels": 3,
         "patch_sizes": patches_size,
-        "embed_dim": embed_dim,
-        "num_heads": num_heads_vit,
-        "num_layers": num_blocks_vit,
+        "embed_dim": 128,
+        #"projection_dims": 128,
+        "num_heads": 2,
+        "num_layers": 4,
     }
 
     text_transf_options = {
-        "num_heads": num_heads_text,
-        "num_blocks": num_blocks_text,
-        "embed_dims": embed_dim,
+        "num_heads": 1,
+        "num_blocks": 3,
+        "embed_dims": 128,
+        #"projection_dims": 128,
         "vocab_size": VOCAB_SIZE,
         "max_seq_len": MAX_SEQ_LEN,
     }
 
-    model = TransformersSingleTextModel(vit_options, text_transf_options)
+    model = VGGpre_SingleTextModel(vit_options, text_transf_options)
+    #model = VGGpre_Bert(vit_options, text_transf_options)
     model.to(device)
 
-    # optim = torch.optim.AdamW(model.parameters(), lr=lr)  # Should we add weight decay?
-
     optim = torch.optim.Adam(model.parameters(), lr=lr)  # weight decay: L2 penalty 1e-5
-    scheduler = torch.optim.lr_scheduler.StepLR(
-        optim, step_size=scheduler_step, gamma=scheduler_gamma
-    )
+    # scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=10, gamma=0.5)
 
     text_loss = nn.CrossEntropyLoss()
     image_loss = nn.CrossEntropyLoss()
-
+    
     for epoch in range(n_epochs):
         # Training
         model.train()
@@ -292,10 +246,12 @@ def main(config):
         )
 
         # Save the model state dict
-        if epoch % save_per_n_epochs == 0:
+        if epoch % 5 == 0:
             torch.save(
                 model.state_dict(),
-                save_model_path,
+                Path(
+                    "models/VGG_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
+                ),
             )
             logger.info("Saved model")
 
@@ -307,4 +263,12 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.info("Starting training...")
 
-    main()
+    options = {
+        "data_path": Path(r"data/processed"),
+        "batch_size": 32,
+        "n_epochs": 2,
+        "seed": 0,
+        "lr": 1e-4,
+    }
+
+    main(**options)

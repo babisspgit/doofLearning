@@ -6,8 +6,14 @@ from src.models import train_ViT_Txt_Transf
 
 def main():
     # Load the model I want.
-
+    model_options = {
+        # Model options
+    }
+    model = # Model
+    
     # Load its parameters/state_dict from the respective .pt file in models/
+    model.load_state_dict(torch.load(PATH))
+    model.eval()
 
     # Load a preprocessed file with text embeddings. Or Create this in real time if possible.
     # This file is created by having a text dataset and passing each point through the text part of the model.

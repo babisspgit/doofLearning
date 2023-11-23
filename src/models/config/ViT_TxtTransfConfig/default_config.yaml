@@ -4,7 +4,7 @@ data_path: ${hydra:runtime.cwd}/data/processed
 model_save_path: ${hydra:runtime.cwd}/models
 
 batch_size: 32
-n_epochs: 50
+n_epochs: 100
 seed: 0
 lr: 0.0001
 scheduler_step: 20

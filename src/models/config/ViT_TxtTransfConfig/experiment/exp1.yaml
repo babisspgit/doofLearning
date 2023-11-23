@@ -4,7 +4,7 @@
 
 
 # Model parameters
-embed_dim: 128
+embed_dim: 256
 
 vit:
   image_dims: 256
