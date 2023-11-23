@@ -1,5 +1,5 @@
 ./data/
-./models
+./models/
 wandb
 logs/
 *.pt
@@ -7,6 +7,7 @@ logs/
 outputs/
 multirun/
 src/app
+models
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
