@@ -75,7 +75,8 @@ def main():
     for i, rec_idx in enumerate(idx):
         rec_idx = rec_idx.item()
         print(f"Target: {real_text[i]}")
-        print(f"Pred: {recipes_df.iloc[rec_idx].Title}")
+        for col in columns:
+            print(f"Pred: {recipes_df.iloc[rec_idx][col]}")
         print("*" * 25)
 
 
