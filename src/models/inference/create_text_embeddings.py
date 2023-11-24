@@ -101,7 +101,7 @@ def main(config):
         "max_seq_len": MAX_SEQ_LEN,
     }
 
-    saved_model_path = Path("models/ViT_Text_Tranf.pt")
+    saved_model_path = Path("models/ViT_Text_Transf.pt")
     model = TransformersSingleTextModel(vit_options, text_transf_options)
     model.load_state_dict(torch.load(saved_model_path))
     model.eval()
@@ -165,6 +165,14 @@ def main(config):
             _, _, text_embeddings, img_embeddings = model(
                 img, text
             )  # Careful, bc I have messed up the order in Bert
+
+            # Normalize the embeddings
+            img_embeddings = img_embeddings / img_embeddings.norm(
+                p=2, dim=-1, keepdim=True
+            )
+            text_embeddings = text_embeddings / text_embeddings.norm(
+                p=2, dim=-1, keepdim=True
+            )
 
             text_embeddings_stacked = torch.vstack(
                 [text_embeddings_stacked, text_embeddings]

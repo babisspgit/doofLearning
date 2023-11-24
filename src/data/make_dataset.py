@@ -183,7 +183,7 @@ class DatasetRecipes(Dataset):
         if not transformations:
             self.transformations = transforms.Compose(
                 [
-                    transforms.Resize((224, 224)),
+                    transforms.Resize((256, 256)),
                     transforms.ToTensor(),
                     transforms.Normalize((0.5,), (0.5,)),
                 ]
