@@ -37,7 +37,9 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
     EPOCHS = n_epochs
     #
 
-    wandb.init(project=f"ViT_Text_Transf")
+    wandb.init(
+        project=f"ViT_Text_Transf",
+    )
     wandb.config = {
         "learning_rate": lr,
         "epochs": EPOCHS,
@@ -254,7 +256,12 @@ def main(data_path, n_epochs=20, batch_size=32, seed=0, lr=1e-4, embed_dim=256):
 
         # Save the model state dict
         if epoch % save_per_n_epochs == 0:
-            torch.save(model.state_dict(), Path("models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"))
+            torch.save(
+                model.state_dict(),
+                Path(
+                    "models/ViT_Text_Tranf_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
+                ),
+            )
 
 
 if __name__ == "__main__":

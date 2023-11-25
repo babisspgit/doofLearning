@@ -3,7 +3,9 @@ import torch.nn as nn
 import numpy as np
 
 
-def triplet_loss(anchor, positive, negative, margin=1.0, p=2, eps=1e-6):
+def triplet_loss(
+    anchor, positive, negative, margin=1.0, p=2, eps=1e-6, norm_embeddings=True
+):
     """
     Triplet loss function.
     Args:
@@ -17,6 +19,11 @@ def triplet_loss(anchor, positive, negative, margin=1.0, p=2, eps=1e-6):
         triplet loss value
     """
     assert anchor.size() == positive.size() and anchor.size() == negative.size()
+
+    if norm_embeddings:
+        anchor = anchor / anchor.norm(p=2, dim=-1, keepdim=True)
+        positive = positive / positive.norm(p=2, dim=-1, keepdim=True)
+        negative = negative / negative.norm(p=2, dim=-1, keepdim=True)
 
     dist_ap = (anchor - positive).norm(p=p, dim=1)
     dist_an = (anchor - negative).norm(p=p, dim=1)

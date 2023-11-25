@@ -1,0 +1,14 @@
+# @package _group_
+
+
+
+
+# Model parameters
+embed_dim: 256
+
+vit:
+  image_dims: 256
+  patch_dims: 32
+  num_heads: 2
+  num_blocks: 4
+

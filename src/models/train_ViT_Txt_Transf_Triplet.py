@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from torchvision import transforms
 
-from src.data.make_dataset import DatasetRecipesTriplet
+from src.data.make_dataset import DatasetRecipesTriplet, DatasetRecipes
 from src.models.models import TransformersSingleTextModel
 from src.utils.vocab_build import get_vocab, CustomTokenizer
 
@@ -32,10 +32,6 @@ def set_seed(seed=0):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
-
-
-def process_text(raw_text, pipeline):
-    pass
 
 
 @hydra.main(
@@ -61,6 +57,10 @@ def main(config):
 
     # data path(s)
     data_path = Path(config.data_path)
+    save_path = Path(config.model_save_path)
+    save_path.mkdir(exist_ok=True, parents=True)
+    save_model_path = save_path / "ViT_Text_Transf_Triplet.pt"
+    save_model_full_path = save_path / "ViT_Text_Transf_Triplet_full.pt"
 
     # Unpack experiment specific params
     hparams = config["_group_"]  # wtf is this __group__ ?
@@ -99,7 +99,11 @@ def main(config):
         ]
     )
 
-    columns = []
+    columns = ["Title"]
+
+    train_dataset_for_vocab = DatasetRecipes(
+        train_path, columns=columns, transformations=train_transform
+    )
 
     train_dataset = DatasetRecipesTriplet(
         train_path, columns=columns, transformations=train_transform
@@ -111,7 +115,14 @@ def main(config):
     # Use a custom made vocabulary based on the text we have. See fcn for ref.
     tokenizer = CustomTokenizer()
 
-    vocab_, MAX_SEQ_LEN = get_vocab(train_dataset, tokenizer=tokenizer.tokenize)
+    cust_name = "_".join(columns)
+    vocab_path = Path(f"models/simple_vocab_{cust_name}")
+
+    vocab_, MAX_SEQ_LEN = get_vocab(
+        train_dataset_for_vocab,
+        tokenizer=tokenizer.tokenize,
+        vocab_save_path=vocab_path,
+    )
 
     VOCAB_SIZE = len(vocab_)
 
@@ -271,12 +282,19 @@ def main(config):
 
             train_loss += loss.item()
 
-            # probs = torch.nn.functional.softmax(logits_per_text, dim=1)
-            # preds = torch.argmax(probs, dim=-1)
+            # Get acc
+            logits_per_text = torch.matmul(
+                anchor_text_embeddings, anchor_img_embeddings.t()
+            )
 
-            # accuracy = (preds == labels).sum().item()
+            labels = torch.arange(anchor_img.shape[0]).to(device)
 
-            # train_accuracy += accuracy
+            probs = torch.nn.functional.softmax(logits_per_text, dim=1)
+            preds = torch.argmax(probs, dim=-1)
+
+            accuracy = (preds == labels).sum().item()
+
+            train_accuracy += accuracy
 
             pbar.set_description(f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}")
 
@@ -290,44 +308,46 @@ def main(config):
         val_loss = 0
         for data in pbar:
             with torch.no_grad():
-                img_dict, text_dict = data
+                anchors_dict, negs_dict = data
 
                 # For images
-                anchor_img = img_dict["anchor"]
-                pos_text = img_dict["positive"]
-                neg_text = img_dict["negative"]
+                anchor_img = anchors_dict["img"]
+                anchor_text = anchors_dict["text"]
 
-                # For text
-                anchor_text = text_dict["anchor"]
-                pos_img = text_dict["positive"]
-                neg_img = text_dict["negative"]
+                neg_img = negs_dict["img"]
+                neg_text = negs_dict["text"]
 
                 # Now pass the relevant parts from the corresponding parts of the model
                 anchor_img_embeddings = model.img_model(anchor_img)
-                pos_text_embeddings = model.text_model(pos_text)
-                neg_text_embeddings = model.text_model(neg_text)
-
                 anchor_text_embeddings = model.text_model(anchor_text)
-                pos_img_embeddings = model.img_model(pos_img)
+
+                neg_text_embeddings = model.text_model(neg_text)
                 neg_img_embeddings = model.img_model(neg_img)
 
                 batch_image_loss = triplet_loss(
-                    anchor_img_embeddings, pos_text_embeddings, neg_text_embeddings
+                    anchor_img_embeddings, anchor_text_embeddings, neg_text_embeddings
                 )
                 batch_text_loss = triplet_loss(
-                    anchor_text_embeddings, pos_img_embeddings, neg_img_embeddings
+                    anchor_text_embeddings, anchor_img_embeddings, neg_img_embeddings
                 )
 
                 loss = (batch_image_loss + batch_text_loss) / 2.0
 
                 val_loss += loss.item()
 
-                # probs = torch.nn.functional.softmax(logits_per_text, dim=1)
-                # preds = torch.argmax(probs, dim=-1)
+                # Get acc
+                logits_per_text = torch.matmul(
+                    anchor_text_embeddings, anchor_img_embeddings.t()
+                )
 
-                # accuracy = (preds == labels).sum().item()
+                labels = torch.arange(anchor_img.shape[0]).to(device)
 
-                # val_accuracy += accuracy
+                probs = torch.nn.functional.softmax(logits_per_text, dim=1)
+                preds = torch.argmax(probs, dim=-1)
+
+                accuracy = (preds == labels).sum().item()
+
+                val_accuracy += accuracy
 
                 pbar.set_description(
                     f"Epoch {epoch}/{n_epochs}, Loss: {loss.item():.4f}"
@@ -337,9 +357,9 @@ def main(config):
         wandb.log(
             {
                 "training_loss": train_loss / len(train_dataset) * batch_size,
-                # "training_accuracy": train_accuracy / len(train_dataset),
+                "training_accuracy": train_accuracy / len(train_dataset),
                 "validation_loss": val_loss / len(val_dataset) * batch_size,
-                # "validation_accuracy": val_accuracy / len(val_dataset),
+                "validation_accuracy": val_accuracy / len(val_dataset),
             }
         )
 
@@ -347,10 +367,9 @@ def main(config):
         if epoch % save_per_n_epochs == 0:
             torch.save(
                 model.state_dict(),
-                Path(
-                    "models/ViT_Text_Tranf_Triplet_lr_{lr}_emb_{embed_dim}_heads_{num_heads}_n_blocks_{n_blocks}.pt"
-                ),
+                save_model_path,
             )
+            torch.save(model, save_model_full_path)
             logger.info("Saved model")
 
 
