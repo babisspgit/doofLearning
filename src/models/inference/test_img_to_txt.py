@@ -269,12 +269,12 @@ def main():
     # Get the max index
     idx = torch.argmax(logits_per_img, dim=1)  # or topk, but need to change code below
 
-    for i, rec_idx in enumerate(idx):
-        rec_idx = rec_idx.item()
-        print(f"Target: {real_text[i]}")
-        for col in columns:
-            print(f"Pred: {recipes_df.iloc[rec_idx][col]}")
-        print("*" * 25)
+    # for i, rec_idx in enumerate(idx):
+    #     rec_idx = rec_idx.item()
+    #     print(f"Target: {real_text[i]}")
+    #     for col in columns:
+    #         print(f"Pred: {recipes_df.iloc[rec_idx][col]}")
+    #     print("*" * 25)
 
 
     for i, rec_idx in enumerate(idx):
