@@ -71,6 +71,7 @@ def main(config):
     patch_dims = hparams.vit.patch_dims
     num_heads_vit = hparams.vit.num_heads
     num_blocks_vit = hparams.vit.num_blocks
+    vit_dropout = hparams.vit.dropout
 
     # Text Transformer
     num_heads_text = hparams.text_transf.num_heads
@@ -188,6 +189,7 @@ def main(config):
         "embed_dim": embed_dim,
         "num_heads": num_heads_vit,
         "num_layers": num_blocks_vit,
+        'dropout':vit_dropout
     }
 
     text_transf_options = {

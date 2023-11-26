@@ -20,7 +20,7 @@ class Attention(nn.Module):
         self.embed_dim = embed_dim
         self.head_dim = embed_dim // num_heads
 
-        self.scale = self.head_dim * (-0.5)
+        self.scale = self.head_dim ** (-0.5)
 
         self.q_projection = nn.Linear(embed_dim, embed_dim, bias=False)
         self.k_projection = nn.Linear(embed_dim, embed_dim, bias=False)
@@ -55,7 +55,7 @@ class Attention(nn.Module):
             out, "(b h) seq d->b seq (h d)", h=self.num_heads, d=self.head_dim
         )
 
-        # Remember to add aseertations
+        # Remember to add assertations
 
         return self.o_projection(out)
 
@@ -179,6 +179,8 @@ class ViT(nn.Module):
         #     x = x.max(dim=1)[0]
         # elif self.pool == "mean":
         #     x = x.mean(dim=1)
+
+
         x = x.max(dim=1)[0]
         return x
         # return self.projection_layer(x)
