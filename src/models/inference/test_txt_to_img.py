@@ -8,6 +8,7 @@ from PIL import Image
 from src.data.make_dataset import DatasetRecipes
 from src.utils.vocab_build import CustomTokenizer, get_vocab
 
+import matplotlib.pyplot as plt
 
 def get_image(root_path, image_name, extension=".jpg"):
     root_path = Path(root_path)
@@ -27,6 +28,12 @@ def get_image(root_path, image_name, extension=".jpg"):
 
 
 def main():
+    
+    # Predictions path
+    predictions_saved_path = Path('data/txt2img')
+    predictions_saved_path.mkdir(exist_ok=True, parents=True)
+
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Runs on: {device}")
 
@@ -81,9 +88,11 @@ def main():
 
     text_pipeline = lambda x: [vocab_[token] for token in tokenizer.tokenize(x)]
 
+
     def collate_batch(batch):
         img_list, text_list, real_text_list = [], [], []
         for img, _text in batch:
+            real_text_list.append(_text)
             if len(_text) > MAX_SEQ_LEN - 2:
                 _text = _text[: MAX_SEQ_LEN - 2]
 
@@ -99,7 +108,6 @@ def main():
 
             text_list.append(processed_text.unsqueeze(0))
 
-            real_text_list.append(_text)
 
             img_list.append(img.unsqueeze(0))
 
@@ -114,9 +122,9 @@ def main():
 
     # Get a text data point
 
-    batch_size = 1
+    batch_size = 20
     test_loader = DataLoader(
-        test_set, batch_size=batch_size, shuffle=False, collate_fn=collate_batch
+        test_set, batch_size=batch_size, shuffle=True, collate_fn=collate_batch
     )
 
     _, text, real_text = next(iter(test_loader))
@@ -137,13 +145,22 @@ def main():
     for i, rec_idx in enumerate(idx):
         rec_idx = rec_idx.item()
         # print(f"Target: {real_text[i]}")
-        image_name = recipes_df.iloc[rec_idx].Image_Name
-        print(image_name)
-        image = get_image(images_paths, image_name)
+        pred_image_name = recipes_df.iloc[rec_idx].Image_Name
+        print(pred_image_name)
+        image = get_image(images_paths, pred_image_name)
         if image:
-            image.save(f"data/pred_for_{real_text[i]}.jpg")
-        print("*" * 25)
+            # save_name = predictions_saved_path / f"pred_for_{real_text[i]}.jpg"
+            # image.save(save_name)
+            image = image.convert('RGB')
+            plt.imshow(image)
+            plt.title(f"User input:\n{real_text[i]}")
+            plt.axis('Off')
 
+            plt.tight_layout()
+            save_name = predictions_saved_path / f"pred_for_{real_text[i]}_real_{pred_image_name}.jpg"
+            plt.savefig(save_name)
+            plt.show()
+        print("*" * 25)
 
 if __name__ == "__main__":
     main()
