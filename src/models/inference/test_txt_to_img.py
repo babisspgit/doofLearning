@@ -4,10 +4,10 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from PIL import Image
 from src.data.make_dataset import DatasetRecipes
 from src.utils.vocab_build import CustomTokenizer, get_vocab
 
+from PIL import Image
 import matplotlib.pyplot as plt
 
 def get_image(root_path, image_name, extension=".jpg"):
