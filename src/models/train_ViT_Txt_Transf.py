@@ -189,7 +189,7 @@ def main(config):
         "embed_dim": embed_dim,
         "num_heads": num_heads_vit,
         "num_layers": num_blocks_vit,
-        'dropout':vit_dropout
+        "dropout": vit_dropout,
     }
 
     text_transf_options = {

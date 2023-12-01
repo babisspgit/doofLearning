@@ -26,28 +26,17 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-class DatasetRecipesSep(Dataset):
+class DatasetRecipesSepTriplet(Dataset):
     def __init__(
         self,
         data_path,
-        transformations=None,
     ):
-        super(DatasetRecipesSep, self).__init__()
+        super().__init__()
 
         csv_path = Path(data_path) / "recipes.csv"
 
         self.recipes_df = pd.read_csv(csv_path)
         self.image_path = Path(data_path) / "images"
-
-        self.transformations = transformations
-        if not transformations:
-            self.transformations = transforms.Compose(
-                [
-                    transforms.Resize((256, 256)),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5,), (0.5,)),
-                ]
-            )
 
     def __len__(self):
         return len(self.recipes_df)
@@ -65,12 +54,86 @@ class DatasetRecipesSep(Dataset):
         image_path = self.image_path / image_name
 
         try:
-            img = Image.open(image_path)
+            img = Image.open(image_path).convert("RGB")
+        except FileNotFoundError as e:
+            print(f"Image not found at index: {idx}")
+            raise FileNotFoundError
+
+        # Get the negative pairs
+        neg_idx = torch.randint(len(self.recipes_df), (1,)).item()
+
+        while neg_idx == idx:
+            neg_idx = torch.randint(len(self.recipes_df), (1,)).item()
+
+        neg_data_point = self.recipes_df.iloc[neg_idx]
+
+        # Prepare the text data
+        neg_title = neg_data_point.Title
+        neg_ingredients = neg_data_point.Cleaned_Ingredients
+        neg_instructions = neg_data_point.Instructions
+
+        # Prepare the image
+        neg_image_name = neg_data_point.Image_Name + ".jpg"
+        neg_image_path = self.image_path / neg_image_name
+
+        try:
+            neg_img = Image.open(neg_image_path)
+        except FileNotFoundError as e:
+            print(f"Image index: {neg_idx}")
+            raise FileNotFoundError
+
+        # Recombine in text and image anchor-pos-neg triplets
+        anchors = {
+            "img": img,
+            "title": title,
+            "ingredients": ingredients,
+            "instructions": instructions,
+        }
+
+        negatives = {
+            "img": neg_img,
+            "title": neg_title,
+            "ingredients": neg_ingredients,
+            "instructions": neg_instructions,
+        }
+
+        return anchors, negatives
+
+
+class DatasetRecipesSep(Dataset):
+    def __init__(
+        self,
+        data_path,
+    ):
+        super(DatasetRecipesSep, self).__init__()
+
+        csv_path = Path(data_path) / "recipes.csv"
+
+        self.recipes_df = pd.read_csv(csv_path)
+        self.image_path = Path(data_path) / "images"
+
+    def __len__(self):
+        return len(self.recipes_df)
+
+    def __getitem__(self, idx):
+        data_point = self.recipes_df.iloc[idx]
+
+        # Prepare the text data
+        title = data_point.Title
+        ingredients = data_point.Cleaned_Ingredients
+        instructions = data_point.Instructions
+
+        # Prepare the image
+        image_name = data_point.Image_Name + ".jpg"
+        image_path = self.image_path / image_name
+
+        try:
+            img = Image.open(image_path).convert("RGB")
         except FileNotFoundError as e:
             print(f"Image not found at index: {idx}")
             return None, None
 
-        return self.transformations(img), title, ingredients, instructions
+        return img, title, ingredients, instructions
 
 
 class DatasetRecipesTriplet(Dataset):
@@ -119,13 +182,16 @@ class DatasetRecipesTriplet(Dataset):
         image_path = self.image_path / image_name
 
         try:
-            img = Image.open(image_path)
+            img = Image.open(image_path).convert("RGB")
         except FileNotFoundError as e:
             print(f"Image index: {idx}")
-            return None, None
+            raise FileNotFoundError
 
         # Get the negative pairs
         neg_idx = torch.randint(len(self.recipes_df), (1,)).item()
+
+        while neg_idx == idx:
+            neg_idx = torch.randint(len(self.recipes_df), (1,)).item()
 
         neg_data_point = self.recipes_df.iloc[neg_idx]
 
@@ -208,7 +274,7 @@ class DatasetRecipes(Dataset):
         image_path = self.image_path / image_name
 
         try:
-            img = Image.open(image_path)
+            img = Image.open(image_path).convert("RGB")
         except FileNotFoundError as e:
             print(f"Image index: {idx}")
             return None, None

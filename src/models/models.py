@@ -1,7 +1,30 @@
 import torch
 import torch.nn as nn
-from src.models.Transformers_ import ViT, TextTransformer, bert_model
+from src.models.Transformers_ import ViT, TextTransformer, bert_model, pretrained_vit
 from src.models.CNN_models import VGG, VGGImageEncoder
+
+
+class PretrainedViT(nn.Module):
+    def __init__(self, vit_config_name: str, txt_options: dict):
+        super().__init__()
+
+        self.img_model = pretrained_vit(vit_config_name)
+        self.text_model = TextTransformer(**txt_options)  # or bert
+
+    def forward(self, img_tensor, tok_text_tensor):
+        img_embeddings = self.img_model(img_tensor)
+        text_embeddings = self.text_model(tok_text_tensor)
+
+        img_embeddings = img_embeddings / img_embeddings.norm(p=2, dim=-1, keepdim=True)
+        text_embeddings = text_embeddings / text_embeddings.norm(
+            p=2, dim=-1, keepdim=True
+        )
+
+        # Create the cosine similarities as a matrix
+        logits_per_text = torch.matmul(text_embeddings, img_embeddings.t())
+        logits_per_image = logits_per_text.t()
+
+        return logits_per_text, logits_per_image, text_embeddings, img_embeddings
 
 
 ## Vit + TextTransformer

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
 from einops import rearrange
-from transformers import BertModel
+from transformers import BertModel, ViTModel, ViTForImageClassification
 
 
 import math
@@ -180,8 +180,11 @@ class ViT(nn.Module):
         # elif self.pool == "mean":
         #     x = x.mean(dim=1)
 
+        print(x.shape)
 
         x = x.max(dim=1)[0]
+
+        print(x.shape)
         return x
         # return self.projection_layer(x)
 
@@ -293,3 +296,22 @@ class bert_model(nn.Module):
         embeddings = self.projection_layer(pooling_output)
 
         return embeddings
+
+
+class pretrained_vit(nn.Module):
+    def __init__(self, vit_config_name: str = None):
+        super().__init__()
+
+        model_name_or_path = vit_config_name
+        if not vit_config_name:
+            model_name_or_path = "google/vit-base-patch16-224-in21k"
+
+        # self.model = ViTModel.from_pretrained(model_name_or_path)
+        self.model = ViTModel(model_name_or_path)
+
+        # self.project_layer = nn.Linear(output_of_last_hidden_stat ,embed_dim)
+
+    def forward(self, x):
+        x = self.model(x)
+        a = x.pooler_output
+        return a

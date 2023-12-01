@@ -13,18 +13,19 @@ import wandb
 
 
 BATCH_SIZE = 32
-EPOCHS = 1000  # 300 looks best up to now
-MAX_SEQ_LEN = 666
+EPOCHS = 100  # 300 looks best up to now
+MAX_SEQ_LEN = 77
+
 
 def main():
     # hyperparams
     lr = 5e-5
-    save_per_n_epochs = 100  # if None, save every epoch
+    save_per_n_epochs = 10  # if None, save every epoch
     #
 
     logger = logging.getLogger(__name__)
 
-    wandb.init(project=f"clip_finetuning")
+    wandb.init(project=f"ViT_Text_Transf")
     wandb.config = {"learning_rate": lr, "epochs": EPOCHS, "batch_size": BATCH_SIZE}
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -71,14 +72,17 @@ def main():
             torch.cat(text_list, axis=0).to(device),
         )
 
+    columns = ["Title"]
     train_dataset = DatasetRecipes(
-        data_path=train_data_path, transformations=preprocess
+        data_path=train_data_path, transformations=preprocess, columns=columns
     )
     train_dataloader = DataLoader(
         train_dataset, batch_size=BATCH_SIZE, collate_fn=collate_batch
     )
 
-    val_dataset = DatasetRecipes(data_path=val_data_path, transformations=preprocess)
+    val_dataset = DatasetRecipes(
+        data_path=val_data_path, transformations=preprocess, columns=columns
+    )
     val_dataloader = DataLoader(
         val_dataset, batch_size=BATCH_SIZE, collate_fn=collate_batch
     )
@@ -128,12 +132,14 @@ def main():
             ) / 2
             total_loss.backward()
 
-            if device == "cpu":
-                optimizer.step()
-            else:
-                convert_models_to_fp32(model)
-                optimizer.step()
-                clip.model.convert_weights(model)
+            # if device == "cpu":
+            #     optimizer.step()
+            # else:
+            #     convert_models_to_fp32(model)
+            #     optimizer.step()
+            #     clip.model.convert_weights(model)
+
+            optimizer.step()
 
             pbar.set_description(
                 f"Epoch {epoch}/{EPOCHS}, Loss: {total_loss.item():.4f}"
@@ -144,7 +150,7 @@ def main():
             probs = logits_per_image.softmax(dim=-1)
             preds = torch.argmax(probs, dim=-1)
 
-            training_accuracy += (preds == probs).sum().item()
+            training_accuracy += (preds == ground_truth).sum().item()
 
         # print(f"Training accuracy: {accuracy/len(train_dataset)}")
 
@@ -176,21 +182,15 @@ def main():
                 probs = logits_per_image.softmax(dim=-1)
                 preds = torch.argmax(probs, dim=-1)
 
-                val_accuracy += (preds == probs).sum().item()
+                val_accuracy += (preds == ground_truth).sum().item()
 
         # print(f"Validation accuracy: {accuracy/len(val_dataset)}")
 
         wandb.log(
             {
                 "training_loss": training_loss_ / (len(train_dataset)) * BATCH_SIZE,
-                "validation_loss": val_loss / len(val_dataset),
-            }
-        )
-
-        wandb.log(
-            {
-                "training_accuracy": training_accuracy
-                / (len(train_dataset) * BATCH_SIZE),
+                "training_accuracy": training_accuracy / (len(train_dataset)),
+                "validation_loss": val_loss / len(val_dataset) * BATCH_SIZE,
                 "validation_accuracy": val_accuracy / len(val_dataset),
             }
         )
@@ -205,18 +205,19 @@ def main():
                         # 'optimizer_state_dict': optimizer.state_dict(),
                         # 'loss': total_loss,
                     },
-                    f"models/clip_finetuned_{epoch}.pt",
+                    f"models/clip_finetuned.pt",
                 )
-        else:
-            torch.save(
-                {
-                    # 'epoch': epoch,
-                    "model_state_dict": model.state_dict(),
-                    # 'optimizer_state_dict': optimizer.state_dict(),
-                    # 'loss': total_loss,
-                },
-                f"models/clip_finetuned.pt",
-            )
+                torch.save(model, f"models/clip_finetuned_full.pt")
+        # else:
+        #     torch.save(
+        #         {
+        #             # 'epoch': epoch,
+        #             "model_state_dict": model.state_dict(),
+        #             # 'optimizer_state_dict': optimizer.state_dict(),
+        #             # 'loss': total_loss,
+        #         },
+        #         f"models/clip_finetuned.pt",
+        #     )
 
 
 if __name__ == "__main__":

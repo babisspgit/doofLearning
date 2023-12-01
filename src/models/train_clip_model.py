@@ -82,12 +82,14 @@ def main():
 
     tokenizer = CLIPTokenizerFast.from_pretrained(pretrained_str, **tokenizer_options)
 
+    columns = ['Title']
+
     train_dataset = DatasetRecipes(
-        "data/processed/train", transformations=img_processor
+        "data/processed/train", transformations=img_processor, columns=columns
     )
 
     val_dataset = DatasetRecipes(
-        "data/processed/validation", transformations=img_processor
+        "data/processed/validation", transformations=img_processor, columns=columns
     )
 
     # build vocab, add tokens

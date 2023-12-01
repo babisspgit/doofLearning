@@ -24,9 +24,6 @@ import einops
 from einops import rearrange
 
 
-
-
-
 def show_mask_on_image(img, mask):
     if img.max() > 1:
         img = np.float32(img) / 255
@@ -38,13 +35,17 @@ def show_mask_on_image(img, mask):
 
 
 def visualize_attention_maps(
-    model, image, head_fusion, discard_ratio, file_name="attention_maps.pdf", image_title='title'
+    model,
+    image,
+    head_fusion,
+    discard_ratio,
+    file_name="attention_maps.pdf",
+    image_title="title",
 ):
     """
     https://jacobgil.github.io/deeplearning/vision-transformer-explainability
     """
 
-  
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model.to(device)
@@ -52,7 +53,7 @@ def visualize_attention_maps(
 
     # Pick n_images images from one dataloader, prob validation
 
-    img = image.to(device)#  dataset[1][0].to(device)  # plus 1 to have the cat
+    img = image.to(device)  #  dataset[1][0].to(device)  # plus 1 to have the cat
 
     # Pass the image throught the model, getting the attention output of the last encoder layer
     # Image to patches
@@ -76,24 +77,29 @@ def visualize_attention_maps(
         values = block.attention.v_projection(x)
 
         keys = rearrange(
-            keys, "b seq (h d) -> (b h) seq d", h=block.attention.num_heads, d=block.attention.head_dim
+            keys,
+            "b seq (h d) -> (b h) seq d",
+            h=block.attention.num_heads,
+            d=block.attention.head_dim,
         )
         values = rearrange(
-            values, "b seq (h d) -> (b h) seq d", h=block.attention.num_heads, d=block.attention.head_dim
+            values,
+            "b seq (h d) -> (b h) seq d",
+            h=block.attention.num_heads,
+            d=block.attention.head_dim,
         )
         queries = rearrange(
-            queries, "b seq (h d) -> (b h) seq d", h=block.attention.num_heads, d=block.attention.head_dim
+            queries,
+            "b seq (h d) -> (b h) seq d",
+            h=block.attention.num_heads,
+            d=block.attention.head_dim,
         )
 
         attention_logits = torch.matmul(keys, values.transpose(1, 2))
         attention_logits *= block.attention.scale
         attention = torch.nn.functional.softmax(attention_logits, dim=-1)
 
-
-
-
         attentions.append(attention.cpu())
-
 
     # Attentions from array to tensor
     n_blocks = len(attentions)
@@ -138,11 +144,10 @@ def visualize_attention_maps(
     # Look at the total attention between the class token,
     # and the image patches
 
-    print(result.shape)
+    # print(result.shape)
     # mask = result[0, 1:]
-    mask = result[:]
+    mask = result[1]
     # print(mask.shape, mask.max(), img.max())
-
 
     mask = mask.reshape(1, -1)
 
@@ -167,19 +172,17 @@ def visualize_attention_maps(
     plt.subplot(1, 2, 1)
     plt.imshow(img)
     plt.tight_layout()
-    plt.axis('Off')
+    plt.axis("Off")
 
     plt.subplot(1, 2, 2)
     plt.imshow(mask[:, :, ::-1])
     plt.tight_layout()
-    plt.axis('Off')
+    plt.axis("Off")
 
     plt.savefig(file_name)
     plt.show()
 
     return
-
-
 
 
 def get_image(root_path, image_name, extension=".jpg"):
@@ -200,14 +203,12 @@ def get_image(root_path, image_name, extension=".jpg"):
 
 
 def main():
-
     # Predictions path
-    predictions_saved_path = Path('data/img2txt')
+    predictions_saved_path = Path("data/img2txt")
     predictions_saved_path.mkdir(exist_ok=True, parents=True)
 
     # Images root
     images_paths = Path("data/processed")
-
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Running on: {device}")
@@ -246,10 +247,6 @@ def main():
         data_path=data_path, columns=columns, transformations=None
     )
 
-
-
-
-
     batch_size = 20
     test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
 
@@ -276,17 +273,15 @@ def main():
     #         print(f"Pred: {recipes_df.iloc[rec_idx][col]}")
     #     print("*" * 25)
 
-
     for i, rec_idx in enumerate(idx):
         rec_idx = rec_idx.item()
-        
+
         pred_image_name = recipes_df.iloc[rec_idx].Image_Name
         print(pred_image_name)
         # image = get_image(images_paths, pred_image_name)
-        image = img[i].permute((1,2,0)).detach().cpu().numpy()
+        image = img[i].permute((1, 2, 0)).detach().cpu().numpy()
 
         img_title = f"Prediction:\n{recipes_df.iloc[rec_idx]['Title']}"
-        
 
         # # image = image.convert('RGB')
         # plt.imshow(image)
@@ -298,10 +293,18 @@ def main():
         # plt.savefig(save_name)
         # plt.show()
 
-        save_name = predictions_saved_path / f"pred_for_{pred_image_name}_real_{real_text[i]}_attention.jpg"
+        save_name = (
+            predictions_saved_path
+            / f"pred_for_{pred_image_name}_real_{real_text[i]}_attention.jpg"
+        )
         visualize_attention_maps(
-        model, img[i], 'max', discard_ratio=0.1, file_name=save_name, image_title=img_title
-    )
+            model,
+            img[i],
+            "max",
+            discard_ratio=0.1,
+            file_name=save_name,
+            image_title=img_title,
+        )
 
     print("*" * 25)
 
