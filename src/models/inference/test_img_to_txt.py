@@ -124,9 +124,6 @@ def visualize_attention_maps(
             else:
                 raise "Attention head fusion type Not supported"
 
-            # Drop the lowest attentions, but
-            # don't drop the class token
-
             flat = attention_heads_fused.view(attention_heads_fused.size(0), -1)
             _, indices = flat.topk(int(flat.size(-1) * discard_ratio), -1, False)
 
