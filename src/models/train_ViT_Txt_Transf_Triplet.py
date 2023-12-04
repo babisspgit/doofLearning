@@ -283,6 +283,14 @@ def main(config):
             train_loss += loss.item()
 
             # Get acc
+
+            anchor_text_embeddings = (
+                anchor_text_embeddings
+                / anchor_text_embeddings.norm(p=2, dim=-1, keepdim=True)
+            )
+            anchor_img_embeddings = anchor_img_embeddings / anchor_img_embeddings.norm(
+                p=2, dim=-1, keepdim=True
+            )
             logits_per_text = torch.matmul(
                 anchor_text_embeddings, anchor_img_embeddings.t()
             )
@@ -336,6 +344,16 @@ def main(config):
                 val_loss += loss.item()
 
                 # Get acc
+
+                anchor_text_embeddings = (
+                    anchor_text_embeddings
+                    / anchor_text_embeddings.norm(p=2, dim=-1, keepdim=True)
+                )
+                anchor_img_embeddings = (
+                    anchor_img_embeddings
+                    / anchor_img_embeddings.norm(p=2, dim=-1, keepdim=True)
+                )
+
                 logits_per_text = torch.matmul(
                     anchor_text_embeddings, anchor_img_embeddings.t()
                 )

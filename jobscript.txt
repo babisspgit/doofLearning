@@ -16,4 +16,4 @@ module swap cuda/11.6
 
 source ../venv/bin/activate
 
-python src/models/finetune_Vit_Triplet.py
+python src/models/finetune_Vit_2_text.py

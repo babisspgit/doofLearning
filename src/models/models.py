@@ -4,6 +4,38 @@ from src.models.Transformers_ import ViT, TextTransformer, bert_model, pretraine
 from src.models.CNN_models import VGG, VGGImageEncoder
 
 
+class PretrainedViT_Multiple(nn.Module):
+    def __init__(self, vit_config_name: str, txt_options_1: dict, txt_options_2: dict):
+        super().__init__()
+
+        self.img_model = pretrained_vit(vit_config_name)
+
+        self.text_model_1 = TextTransformer(**txt_options_1)  # or bert
+        self.text_model_2 = TextTransformer(**txt_options_2)  # or bert
+
+    def forward(self, img_tensor, tok_text_tensor_1, tok_text_tensor_2):
+        img_embeddings = self.img_model(img_tensor)
+        text_embeddings_1 = self.text_model_1(tok_text_tensor_1)
+        text_embeddings_2 = self.text_model_2(tok_text_tensor_2)
+
+        text_embeddings = torch.cat((text_embeddings_1, text_embeddings_2), dim=1)
+
+        assert (
+            img_embeddings.shape[1] == text_embeddings.shape[1]
+        ), "Image and concatenated text embeddings have different shapes"
+
+        img_embeddings = img_embeddings / img_embeddings.norm(p=2, dim=-1, keepdim=True)
+        text_embeddings = text_embeddings / text_embeddings.norm(
+            p=2, dim=-1, keepdim=True
+        )
+
+        # Create the cosine similarities as a matrix
+        logits_per_text = torch.matmul(text_embeddings, img_embeddings.t())
+        logits_per_image = logits_per_text.t()
+
+        return logits_per_text, logits_per_image, text_embeddings, img_embeddings
+
+
 class PretrainedViT(nn.Module):
     def __init__(self, vit_config_name: str, txt_options: dict):
         super().__init__()

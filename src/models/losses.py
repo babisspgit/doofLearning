@@ -26,8 +26,11 @@ def triplet_loss(
         negative = negative / negative.norm(p=2, dim=-1, keepdim=True)
 
     dist_ap = (anchor - positive).norm(p=p, dim=1)
+
     dist_an = (anchor - negative).norm(p=p, dim=1)
+
     loss = torch.clamp(dist_ap - dist_an + margin, min=eps)
+
     return loss.mean()
 
 

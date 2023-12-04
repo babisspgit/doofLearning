@@ -44,7 +44,7 @@ class Attention(nn.Module):
             queries, "b seq (h d) -> (b h) seq d", h=self.num_heads, d=self.head_dim
         )
 
-        attention_logits = torch.matmul(keys, values.transpose(1, 2))
+        attention_logits = torch.matmul(keys, queries.transpose(1, 2))
         attention_logits *= self.scale
         attention = torch.nn.functional.softmax(attention_logits, dim=-1)
 

@@ -32,13 +32,7 @@ def main():
 
     print(f"Device: {device}")
 
-    if Path("models/clip_finetuned_666.pt").exists():  ## Change the name to open!
-        load_path = "models/clip_finetuned.pt"
-        logger.info(f"Saved model found at {load_path}.")
-    else:
-        load_path = "ViT-B/32"
-        logger.info(f"Saved model not found. Using {load_path}.")
-
+    load_path = "ViT-B/32"
     model, preprocess = clip.load(load_path, device=device, jit=False)
     # model.context_length = MAX_SEQ_LEN
 
