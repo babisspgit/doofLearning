@@ -152,7 +152,7 @@ class VGGImageEncoder(nn.Module):  ## works!
     def __init__(self, output_dim):
         super(VGGImageEncoder, self).__init__()
         # Loading a pre-trained VGG-16 model
-        self.vgg = vgg16(pretrained=True)
+        self.vgg = models.vgg16(pretrained=True)
 
         # Removing the last classifier layer
         self.vgg.classifier = nn.Sequential(*list(self.vgg.classifier.children())[:-1])
